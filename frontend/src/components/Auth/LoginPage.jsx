@@ -9,6 +9,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -17,21 +19,27 @@ export default function LoginPage() {
   });
 
   const handlechange = (e) => {
+    setError("");
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
-  const handleSubmit = () => {
+
+  const handleSubmit = async () => {
+    setError("");
+    setIsLoading(true);
+
     if (isLogin) {
       if (!formData.email || !formData.password) {
-        alert("Please Fill all the fields!!");
+        setError("Please fill all the fields!");
+        setIsLoading(false);
         return;
       }
 
-      const success = login(formData.email, formData.password);
+      const result = await login(formData.email, formData.password);
 
-      if (success) {
+      if (result.success) {
         navigate("/dashboard");
       } else {
-        alert("Login failed");
+        setError(result.message);
       }
     } else {
       if (
@@ -40,28 +48,36 @@ export default function LoginPage() {
         !formData.password ||
         !formData.confirmPassword
       ) {
-        alert("Please fill in all the details!!");
+        setError("Please fill in all the details!");
+        setIsLoading(false);
         return;
       }
 
       if (formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match!");
+        setError("Passwords do not match!");
+        setIsLoading(false);
         return;
       }
 
-      const success = signup(formData.name, formData.email, formData.password);
+      const result = await signup(
+        formData.name,
+        formData.email,
+        formData.password
+      );
 
-      if (success) {
-        alert("Account created!");
+      if (result.success) {
         navigate("/dashboard");
       } else {
-        alert("Signup failed");
+        setError(result.message);
       }
     }
+
+    setIsLoading(false);
   };
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
+    setError("");
     setFormData({
       name: "",
       email: "",
@@ -69,6 +85,7 @@ export default function LoginPage() {
       confirmPassword: "",
     });
   };
+
   return (
     <>
       <div className="auth-page">
@@ -82,6 +99,14 @@ export default function LoginPage() {
                   : "Sign Up to get started"}
               </p>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="error-box">
+                <p>{error}</p>
+              </div>
+            )}
+
             <div className="form">
               {!isLogin && (
                 <div className="form-group">
@@ -92,11 +117,13 @@ export default function LoginPage() {
                       type="text"
                       name="name"
                       value={formData.name}
+                      onChange={handlechange}
                       placeholder="Enter your name"
                     />
                   </div>
                 </div>
               )}
+
               <div className="form-group">
                 <label>Email</label>
                 <div className="input-icon">
@@ -120,7 +147,7 @@ export default function LoginPage() {
                     name="password"
                     value={formData.password}
                     onChange={handlechange}
-                    placeholder="********"
+                    placeholder="••••••••"
                   />
                   <button
                     type="button"
@@ -134,36 +161,33 @@ export default function LoginPage() {
 
               {!isLogin && (
                 <div className="form-group">
-                  <label> Confirm Password</label>
+                  <label>Confirm Password</label>
                   <div className="input-icon">
                     <Lock size={18} />
                     <input
                       type={showPassword ? "text" : "password"}
-                      name="confirmpassword"
-                      value={formData.confirmpassword}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
                       onChange={handlechange}
-                      placeholder="********"
+                      placeholder="••••••••"
                     />
                   </div>
                 </div>
               )}
+
               {isLogin && (
                 <div className="forgot">
                   <button>Forgot password?</button>
                 </div>
               )}
-              <button className="submit-btn" onClick={handleSubmit}>
-                {isLogin ? "Login" : "Sign Up"}
+
+              <button
+                className="submit-btn"
+                onClick={handleSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
               </button>
-
-              <div className="divider">
-                <span>Or continue with</span>
-              </div>
-
-              <div className="social">
-                <button>Google</button>
-                <button>Facebook</button>
-              </div>
 
               <div className="toggle">
                 <span>
