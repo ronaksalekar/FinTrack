@@ -18,7 +18,7 @@ export default function LoginPage() {
     confirmPassword: "",
   });
 
-  const handlechange = (e) => {
+  const handleChange = (e) => {
     setError("");
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -28,6 +28,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     if (isLogin) {
+      // Login Logic
       if (!formData.email || !formData.password) {
         setError("Please fill all the fields!");
         setIsLoading(false);
@@ -37,17 +38,18 @@ export default function LoginPage() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        navigate("/dashboard");
+        const onboardingComplete = localStorage.getItem('onboardingComplete');
+        if (onboardingComplete === 'true') {
+          navigate("/dashboard");
+        } else {
+          navigate("/welcome");
+        }
       } else {
         setError(result.message);
       }
     } else {
-      if (
-        !formData.name ||
-        !formData.email ||
-        !formData.password ||
-        !formData.confirmPassword
-      ) {
+      // Signup Logic
+      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
         setError("Please fill in all the details!");
         setIsLoading(false);
         return;
@@ -59,14 +61,10 @@ export default function LoginPage() {
         return;
       }
 
-      const result = await signup(
-        formData.name,
-        formData.email,
-        formData.password
-      );
+      const result = await signup(formData.name, formData.email, formData.password);
 
       if (result.success) {
-        navigate("/dashboard");
+        navigate("/welcome");
       } else {
         setError(result.message);
       }
@@ -87,123 +85,126 @@ export default function LoginPage() {
   };
 
   return (
-    <>
-      <div className="auth-page">
-        <div className="auth-container">
-          <div className="auth-card">
-            <div className="auth-header">
-              <h1>{isLogin ? "Welcome Back!" : "Create account"}</h1>
-              <p>
-                {isLogin
-                  ? "Login into your account!"
-                  : "Sign Up to get started"}
-              </p>
-            </div>
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="auth-card">
+          <div className="auth-header">
+            <h1>{isLogin ? "Welcome Back!" : "Create account"}</h1>
+            <p>
+              {isLogin ? "Login into your account!" : "Sign Up to get started"}
+            </p>
+          </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="error-box">
-                <p>{error}</p>
+          {error && (
+            <div className="error-box" role="alert">
+              <p>{error}</p>
+            </div>
+          )}
+
+          <div className="auth-form">
+            {!isLogin && (
+              <div className="auth-form-group">
+                <label htmlFor="signup-name">Full Name</label>
+                <div className="auth-input-wrapper">
+                  <User size={18} aria-hidden="true" />
+                  <input
+                    id="signup-name"
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter your name"
+                    autoComplete="name"
+                  />
+                </div>
               </div>
             )}
 
-            <div className="form">
-              {!isLogin && (
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <div className="input-icon">
-                    <User size={18} />
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handlechange}
-                      placeholder="Enter your name"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label>Email</label>
-                <div className="input-icon">
-                  <Mail size={18} />
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handlechange}
-                    placeholder="you@gmail.com"
-                  />
-                </div>
+            <div className="auth-form-group">
+              <label htmlFor="auth-email">Email</label>
+              <div className="auth-input-wrapper">
+                <Mail size={18} aria-hidden="true" />
+                <input
+                  id="auth-email"
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@gmail.com"
+                  autoComplete="email"
+                />
               </div>
+            </div>
 
-              <div className="form-group">
-                <label>Password</label>
-                <div className="input-icon">
-                  <Lock size={18} />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handlechange}
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    className="eye-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              {!isLogin && (
-                <div className="form-group">
-                  <label>Confirm Password</label>
-                  <div className="input-icon">
-                    <Lock size={18} />
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handlechange}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {isLogin && (
-                <div className="forgot">
-                  <button>Forgot password?</button>
-                </div>
-              )}
-
-              <button
-                className="submit-btn"
-                onClick={handleSubmit}
-                disabled={isLoading}
-              >
-                {isLoading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
-              </button>
-
-              <div className="toggle">
-                <span>
-                  {isLogin
-                    ? "Don't have an account? "
-                    : "Already have an account? "}
-                </span>
-                <button onClick={toggleMode}>
-                  {isLogin ? "Sign Up" : "Login"}
+            <div className="auth-form-group">
+              <label htmlFor="auth-password">Password</label>
+              <div className="auth-input-wrapper">
+                <Lock size={18} aria-hidden="true" />
+                <input
+                  id="auth-password"
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="••••••••"
+                  autoComplete={isLogin ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  className="auth-eye-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
+
+            {!isLogin && (
+              <div className="auth-form-group">
+                <label htmlFor="auth-confirm-password">Confirm Password</label>
+                <div className="auth-input-wrapper">
+                  <Lock size={18} aria-hidden="true" />
+                  <input
+                    id="auth-confirm-password"
+                    type={showPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            )}
+
+            {isLogin && (
+              <div className="auth-forgot">
+                <button type="button">Forgot password?</button>
+              </div>
+            )}
+
+            <button
+              className="auth-submit-btn"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              type="button"
+            >
+              {isLoading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
+            </button>
+
+            <div className="auth-toggle">
+              <span>
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+              </span>
+              <button type="button" onClick={toggleMode}>
+                {isLogin ? "Sign Up" : "Login"}
+              </button>
+            </div>
           </div>
-          <p className="footer">@FinTrack Expense Tracker App</p>
         </div>
+        <p className="auth-footer">@FinTrack Expense Tracker App</p>
       </div>
-    </>
+    </div>
   );
 }
