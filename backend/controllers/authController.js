@@ -7,31 +7,30 @@ const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Check if all fields are provided
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all fields' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user
+    // Create new user with name in profile
     const user = new User({
       name,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      profile: {
+        fullName: name  // Save name to profile during signup
+      }
     });
 
     await user.save();
 
-    // Generate token
     const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
       expiresIn: '7d'
     });
@@ -42,7 +41,9 @@ const signup = async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        profile: user.profile,
+        onboardingComplete: user.onboardingComplete
       }
     });
   } catch (error) {

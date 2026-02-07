@@ -1,16 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Calendar, Moon, Sun, ArrowRight, Check, X } from 'lucide-react';
+import axios from 'axios';
+import { useAuth } from 'C:/Notes/Projects/Project-1/finance_tracker/frontend/src/components/Auth/AuthContext.jsx'
 import './WelcomePage.css';
+
+const API_URL = 'http://localhost:5000/api/user';
 
 export default function WelcomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     fullName: '',
     age: '',
     theme: 'light'
   });
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Pre-fill user's name from signup
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.profile?.fullName || user.name || ''
+      }));
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({
@@ -39,14 +55,29 @@ export default function WelcomePage() {
   };
 
   const handleSkip = () => {
-    localStorage.setItem('onboardingComplete', 'true');
     navigate('/dashboard');
   };
 
-  const handleComplete = () => {
-    localStorage.setItem('userPreferences', JSON.stringify(formData));
-    localStorage.setItem('onboardingComplete', 'true');
-    navigate('/dashboard');
+  const handleComplete = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      await axios.put(
+        `${API_URL}/preferences`,
+        formData,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      alert('Failed to save preferences');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -85,8 +116,8 @@ export default function WelcomePage() {
                 <div className="welcome-icon-circle">
                   <User size={28} />
                 </div>
-                <h2>Welcome! 🎉</h2>
-                <p>Let's get to know you better</p>
+                <h2>Welcome, {formData.fullName.split(' ')[0] || 'there'}! 🎉</h2>
+                <p>Let's complete your profile</p>
               </div>
 
               <div className="welcome-form-group">
@@ -103,6 +134,9 @@ export default function WelcomePage() {
                     autoComplete="name"
                   />
                 </div>
+                <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  You can update this if needed
+                </small>
               </div>
 
               <div className="welcome-form-group">
@@ -217,8 +251,13 @@ export default function WelcomePage() {
                 <button onClick={() => setStep(2)} className="welcome-btn-secondary" type="button">
                   Back
                 </button>
-                <button onClick={handleComplete} className="welcome-btn-primary" type="button">
-                  Get Started
+                <button 
+                  onClick={handleComplete} 
+                  className="welcome-btn-primary" 
+                  type="button"
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Saving...' : 'Get Started'}
                   <Check size={18} />
                 </button>
               </div>

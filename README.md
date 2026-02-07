@@ -1,3 +1,4 @@
+
 FinTrack – Expense Tracker App
 
 FinTrack is a personal finance tracking web application built using React.
@@ -14,7 +15,7 @@ The application includes user authentication, a guided onboarding flow, dashboar
             -Route protection using a custom authentication context
    
 
-2)Onboarding (Welcome Flow)
+2) Onboarding (Welcome Flow)
 
             -Multi-step onboarding shown after first signup
             -Collects basic user preferences
@@ -22,7 +23,7 @@ The application includes user authentication, a guided onboarding flow, dashboar
             -User progress stored in localStorage
             -Automatically skipped for returning users
 
-3)Dashboard
+3) Dashboard
 
             -High-level overview of:
                         ~Total balance
@@ -34,25 +35,25 @@ The application includes user authentication, a guided onboarding flow, dashboar
                         ~Create budget
                         ~View reports
 
-4)Transactions
+4) Transactions
 
             -Add and manage income and expense entries
             -Category-based tracking
             -Instant UI updates after changes
 
-5)Budgets
+5) Budgets
 
             -Create and manage budgets
             -Track spending against limits
             -Compare budgeted vs actual expenses
 
-7)Reports and Analytics
+7) Reports and Analytics
 
             -Visual breakdown of spending
             -Category-wise analysis
             -Time-based expense reports
 
-8)Settings
+8) Settings
 
             -Profile management
             -Password update

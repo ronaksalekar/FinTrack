@@ -29,40 +29,43 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      const res = await axios.post(`${API_URL}/login`, { email, password });
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      setUser(res.data.user);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || "Login failed",
-      };
+ const login = async (email, password) => {
+  try {
+    const res = await axios.post(`${API_URL}/login`, { email, password });
+    localStorage.setItem("token", res.data.token);
+    setUser(res.data.user);
+    
+    // Save onboarding status
+    if (res.data.user.onboardingComplete) {
+      localStorage.setItem('onboardingComplete', 'true');
     }
-  };
+    
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Login failed",
+    };
+  }
+};
 
-  const signup = async (name, email, password) => {
-    try {
-      const res = await axios.post(`${API_URL}/signup`, {
-        name,
-        email,
-        password,
-      });
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      setUser(res.data.user);
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        message: error.response?.data?.message || "Signup failed",
-      };
-    }
-  };
-
+const signup = async (name, email, password) => {
+  try {
+    const res = await axios.post(`${API_URL}/signup`, {
+      name,
+      email,
+      password,
+    });
+    localStorage.setItem("token", res.data.token);
+    setUser(res.data.user);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Signup failed",
+    };
+  }
+};
   const logout = () => {
     setUser(null);
     localStorage.removeItem("token");
