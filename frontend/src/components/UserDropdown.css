@@ -45,6 +45,11 @@
   text-decoration: none;
   transition: background-color 0.2s;
   cursor: pointer;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
 }
 
 .logout-btn:hover {

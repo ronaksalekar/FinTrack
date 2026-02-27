@@ -1,82 +1,82 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    /* ================= AUTH ================= */
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
+      index: true,
     },
-    password: {
+
+    passwordHash: {
       type: String,
       required: true,
-      minlength: 6
     },
-    // Add these new fields
+
+    recoveryKeyHash: {
+      type: String,
+      default: null,
+    },
+
+    lastLogin: {
+      type: Date,
+      default: Date.now,
+    },
+
+    /* ================= PROFILE ================= */
     profile: {
       fullName: {
         type: String,
-        default: ''
+        default: "",
+        trim: true,
+        maxlength: 80,
       },
       age: {
         type: Number,
         min: 13,
-        max: 120
+        max: 120,
       },
-
       bio: {
         type: String,
-        default: ''
+        default: "",
+        trim: true,
+        maxlength: 300,
       },
       avatar: {
         type: String,
-        default: ''
-      }
+        default: "",
+        trim: true,
+      },
     },
+
+    /* ================= PREFERENCES ================= */
     preferences: {
       theme: {
         type: String,
-        enum: ['light', 'dark', 'auto'],
-        default: 'light'
+        enum: ["light", "dark", "auto"],
+        default: "light",
       },
     },
+
+    /* ================= NOTIFICATIONS ================= */
     notifications: {
-      emailNotifications: {
-        type: Boolean,
-        default: true
-      },
-      pushNotifications: {
-        type: Boolean,
-        default: true
-      },
-      budgetAlerts: {
-        type: Boolean,
-        default: true
-      },
-      weeklyReports: {
-        type: Boolean,
-        default: false
-      },
-      transactionAlerts: {
-        type: Boolean,
-        default: true
-      }
+      emailNotifications: { type: Boolean, default: true },
+      pushNotifications: { type: Boolean, default: true },
+      budgetAlerts: { type: Boolean, default: true },
+      weeklyReports: { type: Boolean, default: false },
+      transactionAlerts: { type: Boolean, default: true },
     },
+
     onboardingComplete: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
   { timestamps: true }
 );
 
-const User = mongoose.model('User', userSchema);
-
-module.exports = User;
+module.exports = mongoose.model("User", userSchema);

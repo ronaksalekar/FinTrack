@@ -21,6 +21,14 @@
 
 }
 
+.navbar-brand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
 .navbar-items {
   display: flex;
   align-items: center;
@@ -43,6 +51,12 @@
   justify-content: center;
   cursor: pointer;
   transition: color 0.2s;
+}
+
+.nav-link-btn {
+  background: none;
+  border: none;
+  font: inherit;
 }
 
 .nav-link:hover {

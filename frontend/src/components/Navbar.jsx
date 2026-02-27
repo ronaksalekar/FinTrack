@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiUser, FiBell, FiSettings, FiMenu, FiX, FiHome } from "react-icons/fi";
+import { FiUser, FiSettings, FiMenu, FiX, FiHome } from "react-icons/fi";
 import UserDropdown from "./UserDropdown";
 import "./Navbar.css";
 import { useNavigate } from "react-router-dom";
@@ -28,12 +28,12 @@ export default function Navbar() {
     <nav className="navbar fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
       <div className="navbar-container">
         {/* Brand */}
-        <a className="navbar-brand" href="#" onClick={() => navigate('/dashboard')}>
+        <button className="navbar-brand navbar-brand-btn" onClick={() => navigate("/dashboard")} type="button">
           FinTrack
-        </a>
+        </button>
 
         {/* Mobile Toggle */}
-        <button className="navbar-toggle" onClick={toggleMobileMenu}>
+        <button className="navbar-toggle" onClick={toggleMobileMenu} type="button">
           {mobileMenuOpen ? <FiX size={24} /> : <FiMenu size={24} />}
         </button>
 
@@ -41,25 +41,25 @@ export default function Navbar() {
         <ul className={`navbar-items ${mobileMenuOpen ? "active" : ""}`}>
 
            <li className="nav-item">
-            <a className="nav-link" href="#">
-              <FiHome size={22} onClick={() => navigate('/dashboard')}/>
+            <button className="nav-link nav-link-btn" onClick={() => navigate("/dashboard")} type="button">
+              <FiHome size={22} />
               <span className="tooltip" >Home</span>
-            </a>
+            </button>
           </li>
           {/* USER ICON */}
           <li className="nav-item">
-            <span className="nav-link" onClick={toggleUserDropdown}>
+            <button className="nav-link nav-link-btn" onClick={toggleUserDropdown} type="button">
               <FiUser size={22} />
                <span className="tooltip">Profile</span>
-            </span>
+            </button>
             {open && <UserDropdown />}
           </li>
           {/* Settings */}
           <li className="nav-item">
-            <a className="nav-link" href="#">
-              <FiSettings size={22} onClick={() => navigate('/settings')} />
+            <button className="nav-link nav-link-btn" onClick={() => navigate("/settings")} type="button">
+              <FiSettings size={22} />
               <span className="tooltip">Settings</span>
-            </a>
+            </button>
           </li>
         </ul>
       </div>

@@ -1,165 +1,276 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Download, Calendar, TrendingUp, TrendingDown, IndianRupee, BarChart3 } from "lucide-react";
 import {
-  Download,
-  Calendar,
-  TrendingUp,
-  TrendingDown,
-  IndianRupee,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
   PieChart,
-  BarChart3,
-  Filter
-} from "lucide-react";
+  Pie,
+  Cell,
+} from "recharts";
+import { useEncryptedData } from "../../hooks/useEncryptedData";
+import { formatCurrency } from "../../utils/currency";
+import {
+  PERIOD_FILTERS,
+  PERIOD_LABELS,
+} from "../../utils/analytics";
+import { useAnalyticsWorker } from "../../hooks/useAnalyticsWorker";
 import "./ReportPage.css";
 
+const RADIAN = Math.PI / 180;
+
+const renderPiePercentLabel = ({ cx, cy, midAngle, outerRadius, percent, payload }) => {
+  const safePercent = payload?.percentage ?? Math.round((percent || 0) * 100);
+  if (!safePercent) return null;
+
+  const labelRadius = outerRadius + 18;
+  const x = cx + labelRadius * Math.cos(-midAngle * RADIAN);
+  const y = cy + labelRadius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="var(--text-primary)"
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      fontSize="12"
+      fontWeight="700"
+      stroke="var(--surface-primary)"
+      strokeWidth="3"
+      paintOrder="stroke"
+    >
+      {`${safePercent}%`}
+    </text>
+  );
+};
+
 export default function ReportsPage() {
+  const {
+    data: transactions,
+    loading,
+    initialized,
+    hasMore,
+    loadMore,
+  } = useEncryptedData("transaction", { pageSize: 60 });
   const [selectedPeriod, setSelectedPeriod] = useState("month");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const monthlyData = [
-    { month: "Jan", income: 4500, expenses: 2800 },
-    { month: "Feb", income: 5200, expenses: 3100 },
-    { month: "Mar", income: 4800, expenses: 2900 },
-    { month: "Apr", income: 5500, expenses: 3400 },
-    { month: "May", income: 6000, expenses: 3200 },
-    { month: "Jun", income: 5800, expenses: 3600 }
-  ];
+  const {
+    filteredTransactions,
+    trendData,
+    categoryBreakdown,
+    analyticsLoading,
+  } = useAnalyticsWorker(transactions, selectedPeriod);
 
-  const categoryBreakdown = [
-    { category: "Food & Dining", amount: 1250, percentage: 35, color: "#3b82f6" },
-    { category: "Transportation", amount: 890, percentage: 25, color: "#8b5cf6" },
-    { category: "Bills & Utilities", amount: 710, percentage: 20, color: "#ec4899" },
-    { category: "Entertainment", amount: 400, percentage: 11, color: "#22c55e" },
-    { category: "Shopping", amount: 180, percentage: 5, color: "#f59e0b" },
-    { category: "Other", amount: 140, percentage: 4, color: "#6b7280" }
-  ];
+  const isInitialLoading = !initialized && loading;
 
-  const topExpenses = [
-    { name: "Whole Foods Market", category: "Food", amount: 185.5, date: "2026-01-15" },
-    { name: "Shell Gas Station", category: "Transport", amount: 65, date: "2026-01-14" },
-    { name: "Amazon Purchase", category: "Shopping", amount: 120.99, date: "2026-01-13" },
-    { name: "Electric Bill", category: "Bills", amount: 110, date: "2026-01-10" },
-    { name: "Restaurant Dinner", category: "Food", amount: 95.75, date: "2026-01-08" }
-  ];
+  const metrics = useMemo(() => {
+    const income = filteredTransactions
+      .filter((item) => item.type === "income")
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
-  const maxAmount = Math.max(...monthlyData.map(d => Math.max(d.income, d.expenses)));
+    const expenses = filteredTransactions
+      .filter((item) => item.type === "expense")
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+    const net = income - expenses;
+    const avgExpense = expenses > 0
+      ? expenses / Math.max(filteredTransactions.filter((item) => item.type === "expense").length, 1)
+      : 0;
+
+    return { income, expenses, net, avgExpense };
+  }, [filteredTransactions]);
+
+  const hasTrendData = trendData.some((item) => item.income > 0 || item.expense > 0);
+
+  const recentExpenses = useMemo(
+    () =>
+      filteredTransactions
+        .filter((item) => item.type === "expense")
+        .sort((a, b) => new Date(b.date || b._timestamp) - new Date(a.date || a._timestamp))
+        .slice(0, 6),
+    [filteredTransactions]
+  );
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await loadMore();
+    setLoadingMore(false);
+  };
+
+  if (isInitialLoading) {
+    return (
+      <div className="reports">
+        <div className="reports-container">
+          <div className="skeleton-row">
+            <div className="skeleton-block title" />
+            <div className="skeleton-block subtitle" />
+          </div>
+          <div className="skeleton-grid">
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+            <div className="skeleton-card" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="reports">
       <div className="reports-header">
         <div>
           <h1>Reports</h1>
-          <p>Analyze your financial performance</p>
+          <p>{PERIOD_LABELS[selectedPeriod]} analytics snapshot</p>
+          {analyticsLoading && <span className="updating-tag">Updating analytics...</span>}
         </div>
-        <button className="export-btn">
-          <Download size={18} />
-          Export Report
+
+        <button
+          className="export-btn"
+          onClick={() => {
+            const blob = new Blob([JSON.stringify(filteredTransactions, null, 2)], {
+              type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `report-${selectedPeriod}.json`;
+            link.click();
+          }}
+          type="button"
+        >
+          <Download size={18} /> Export Report
         </button>
       </div>
 
       <div className="reports-container">
         <div className="filters">
           <div>
-            <label><Calendar size={14} /> Time Period</label>
+            <label>
+              <Calendar size={14} /> Time Period
+            </label>
+
             <div className="period-buttons">
-              {["week", "month", "year"].map(p => (
+              {PERIOD_FILTERS.map((period) => (
                 <button
-                  key={p}
-                  className={selectedPeriod === p ? "active" : ""}
-                  onClick={() => setSelectedPeriod(p)}
+                  key={period.value}
+                  className={selectedPeriod === period.value ? "active" : ""}
+                  onClick={() => setSelectedPeriod(period.value)}
+                  type="button"
                 >
-                  {p}
+                  {period.label}
                 </button>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label><Filter size={14} /> Category</label>
-            <select
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-            >
-              <option value="all">All Categories</option>
-              <option value="food">Food & Dining</option>
-              <option value="transport">Transportation</option>
-              <option value="bills">Bills & Utilities</option>
-              <option value="entertainment">Entertainment</option>
-              <option value="shopping">Shopping</option>
-            </select>
           </div>
         </div>
 
         <div className="summary">
           <div className="stat gradient">
-            <TrendingUp  />
-            <h3>$31,800</h3>
+            <TrendingUp />
+            <h3>{formatCurrency(metrics.income)}</h3>
             <span>Total Income</span>
           </div>
+
           <div className="stat expense">
             <TrendingDown />
-            <h3>$19,000</h3>
+            <h3>{formatCurrency(metrics.expenses)}</h3>
             <span>Total Expenses</span>
           </div>
+
           <div className="stat income">
             <IndianRupee />
-            <h3>$12,800</h3>
+            <h3>{formatCurrency(metrics.net)}</h3>
             <span>Net Savings</span>
           </div>
+
           <div className="stat daily">
-            <BarChart3  />
-            <h3>$108.57</h3>
-            <span>Average Daily Spending</span>
+            <BarChart3 />
+            <h3>{formatCurrency(metrics.avgExpense)}</h3>
+            <span>Average Expense</span>
           </div>
         </div>
 
-        <div className="charts">
-          <div className="card wide">
-            <h3>Income vs Expenses</h3>
-            <svg viewBox="0 0 600 250" className="bar-chart">
-              {monthlyData.map((d, i) => {
-                const x = 80 + i * 85;
-                const ih = (d.income / maxAmount) * 150;
-                const eh = (d.expenses / maxAmount) * 150;
-                return (
-                  <g key={i}>
-                    <rect x={x} y={210 - ih} width="30" height={ih} fill="#22c55e" rx="4" />
-                    <rect x={x + 35} y={210 - eh} width="30" height={eh} fill="#ef4444" rx="4" />
-                    <text x={x + 32} y="235" textAnchor="middle">{d.month}</text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-
-          <div className="card">
-            <h3>Category Breakdown</h3>
-            <svg viewBox="0 0 200 200" className="pie-chart">
-              {categoryBreakdown.reduce((acc, cat, i) => {
-                const start = acc.angle;
-                const end = start + (cat.percentage / 100) * 360;
-                acc.angle = end;
-                const sr = (start - 90) * Math.PI / 180;
-                const er = (end - 90) * Math.PI / 180;
-                const x1 = 100 + 80 * Math.cos(sr);
-                const y1 = 100 + 80 * Math.sin(sr);
-                const x2 = 100 + 80 * Math.cos(er);
-                const y2 = 100 + 80 * Math.sin(er);
-                acc.paths.push(
-                  <path
-                    key={i}
-                    d={`M100 100 L${x1} ${y1} A80 80 0 ${cat.percentage > 50 ? 1 : 0} 1 ${x2} ${y2} Z`}
-                    fill={cat.color}
+        <div className="card wide">
+          <h3>Income vs Expenses</h3>
+          <p className="chart-tag">{PERIOD_LABELS[selectedPeriod]} trend</p>
+          {hasTrendData ? (
+            <div className="bar-chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                  <XAxis dataKey="label" tick={{ fill: "var(--text-secondary)", fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
+                    tickFormatter={(value) => `${Math.round(value / 1000)}k`}
                   />
-                );
-                return acc;
-              }, { angle: 0, paths: [] }).paths}
-              <circle cx="100" cy="100" r="50" fill="#fff" />
-            </svg>
-          </div>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                  <Legend />
+                  <Bar
+                    dataKey="income"
+                    name="Income"
+                    fill="#16a34a"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                  <Bar
+                    dataKey="expense"
+                    name="Expense"
+                    fill="#ef4444"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="empty">No chart data in this period</p>
+          )}
         </div>
 
         <div className="card">
-          <h3>Top Expenses</h3>
+          <h3>Category Breakdown</h3>
+          <p className="chart-tag">Expense categories</p>
+          {categoryBreakdown.length > 0 ? (
+            <div className="pie-chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryBreakdown}
+                    dataKey="amount"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={52}
+                    outerRadius={84}
+                    isAnimationActive={false}
+                    label={renderPiePercentLabel}
+                    labelLine={{ stroke: "var(--border-color)", strokeWidth: 1.2 }}
+                  >
+                    {categoryBreakdown.map((item) => (
+                      <Cell key={item.name} fill={item.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="empty">No expenses in this period</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h3>Recent Expenses</h3>
+          <p className="chart-tag">Showing loaded history only</p>
           <table>
             <thead>
               <tr>
@@ -169,27 +280,40 @@ export default function ReportsPage() {
                 <th className="right">Amount</th>
               </tr>
             </thead>
+
             <tbody>
-              {topExpenses.map((e, i) => (
-                <tr key={i}>
-                  <td>{e.name}</td>
-                  <td>{e.category}</td>
-                  <td>{e.date}</td>
-                  <td className="right red">${e.amount.toFixed(2)}</td>
+              {recentExpenses.length > 0 ? (
+                recentExpenses.map((item) => (
+                  <tr key={item._id}>
+                    <td>{item.description || "-"}</td>
+                    <td>{item.category || "Other"}</td>
+                    <td>{new Date(item.date || item._timestamp).toLocaleDateString()}</td>
+                    <td className="right red">{formatCurrency(Number(item.amount || 0))}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="empty">No expense transactions found</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
+          {hasMore && (
+            <button className="secondary-btn load-more-btn" type="button" onClick={handleLoadMore}>
+              {loadingMore ? "Loading more..." : "Load More Transactions"}
+            </button>
+          )}
         </div>
 
         <div className="insights">
           <div className="info blue">
-            <h4>Spending Insight</h4>
-            <p>You're spending 35% more on Food & Dining compared to last month.</p>
+            <h4>Filter-aware Analytics</h4>
+            <p>All totals and charts update instantly when you switch period tags.</p>
           </div>
+
           <div className="info green">
-            <h4>Savings Goal</h4>
-            <p>You're on track to save $2,500 this month.</p>
+            <h4>Security</h4>
+            <p>Your server stores encrypted data blobs only.</p>
           </div>
         </div>
       </div>

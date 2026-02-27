@@ -1,18 +1,16 @@
 import React from "react";
 import { FiLogOut } from "react-icons/fi";
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from './Auth/AuthContext';
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "./Auth/AuthContext";
 import "./UserDropdown.css";
 
 export default function UserDropdown() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  
-  const handleLogout = (e) => {
-    e.preventDefault();
-    console.log("Logout clicked");
+
+  const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -24,15 +22,17 @@ export default function UserDropdown() {
           alt="User"
           className="profile-avatar"
         />
-        <span className="profile-name">{user?.name || 'John Doe'}</span>
+        <span className="profile-name">
+          {user?.profile?.fullName || user?.email || "User"}
+        </span>
       </div>
 
       <div className="profile-divider" />
 
       {/* Logout */}
-      <a href="#" className="logout-btn" onClick={handleLogout}>
+      <button className="logout-btn" onClick={handleLogout} type="button">
         <FiLogOut /> Logout
-      </a>
+      </button>
     </div>
   );
 }

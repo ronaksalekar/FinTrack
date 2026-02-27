@@ -1,147 +1,112 @@
+# FinTrack - Simple Personal Finance Tracker
 
-FinTrack – Expense Tracker App
+FinTrack is a full-stack web app that helps users manage personal money in one place.
 
-FinTrack is a personal finance tracking web application built using React.
-It helps users keep track of their income, expenses, budgets, and spending patterns in a single place.
+In simple words, this project lets a user:
+- create an account and log in
+- add income and expense transactions
+- create category budgets
+- view dashboard and report analytics
+- switch light/dark theme
+- manage profile and preferences
 
-The application includes user authentication, a guided onboarding flow, dashboards, reports, and user settings, with a focus on clean UI structure and scalable frontend architecture.
+## What This Project Does
 
-=> Features
-1) Authentication
-   
-            -User signup and login with form validation
-            -Password visibility toggle
-            -Error messages and loading states
-            -Route protection using a custom authentication context
-   
+FinTrack focuses on daily money tracking with a clean flow:
+1. User signs up or logs in.
+2. User adds transactions and budgets.
+3. Dashboard shows quick financial health (income, expense, savings, budget usage).
+4. Reports page shows trends and category breakdown.
+5. Settings page controls profile, notifications, and theme.
 
-2) Onboarding (Welcome Flow)
+## Security Idea (Easy Version)
 
-            -Multi-step onboarding shown after first signup
-            -Collects basic user preferences
-            -Light / Dark theme selection
-            -User progress stored in localStorage
-            -Automatically skipped for returning users
+- Data is encrypted on the client side before being stored on the server.
+- Server mainly stores encrypted blobs for finance records.
+- JWT-based authentication is used for protected APIs.
 
-3) Dashboard
+## Main Features
 
-            -High-level overview of:
-                        ~Total balance
-                        ~Total income
-                        ~Total expenses
-                        ~Daily expenses
-            -Quick access actions:
-                        ~Add transaction
-                        ~Create budget
-                        ~View reports
+- Authentication (signup/login)
+- Protected routes
+- Onboarding/welcome flow
+- Transaction management
+- Budget management
+- Dashboard analytics (period filters: weekly/month/year)
+- Reports analytics with charts
+- Theme support (light/dark/auto)
+- Profile and notification settings
+- Data export
 
-4) Transactions
+## Tech Stack
 
-            -Add and manage income and expense entries
-            -Category-based tracking
-            -Instant UI updates after changes
+### Frontend
+- React
+- React Router
+- Context API
+- Recharts (charts)
+- Lucide React + React Icons
+- Plain CSS
 
-5) Budgets
+### Backend
+- Node.js + Express
+- MongoDB + Mongoose
+- JWT auth
+- Rate limiting + Helmet + CORS
 
-            -Create and manage budgets
-            -Track spending against limits
-            -Compare budgeted vs actual expenses
+## Project Structure (High Level)
 
-7) Reports and Analytics
+```text
+finance_tracker/
+  backend/
+    config/
+    controllers/
+    middleware/
+    models/
+    routes/
+    utils/
+    server.js
+  frontend/
+    public/
+    src/
+      components/
+      hooks/
+      utils/
+      workers/
+      App.js
+```
 
-            -Visual breakdown of spending
-            -Category-wise analysis
-            -Time-based expense reports
+## How To Run Locally
 
-8) Settings
+## 1) Backend
 
-            -Profile management
-            -Password update
-            -Notification preferences
-            -Theme preferences
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-=> Tech Stack
+Create `backend/.env` (example):
 
-Frontend: React (Functional components & Hooks)
-Routing: React Router DOM
-State Management: Context API
-Styling: Plain CSS (no UI frameworks)
-Icons: lucide-react
-Authentication State: Custom Auth Context
-Data Persistence: localStorage
+```env
+PORT=5000
+MONGODB_URI=mongodb://localhost:27017/finance_tracker_encrypted
+JWT_SECRET=replace_with_secure_secret
+JWT_EXPIRE=7d
+NODE_ENV=development
+AUTH_RATE_LIMIT_ENABLED=false
+```
 
+## 2) Frontend
 
+```bash
+cd frontend
+npm install
+npm start
+```
 
-=> Project Structure
+Frontend runs on `http://localhost:3000` and backend on `http://localhost:5000`.
 
-FRONTEND:
+## Current Goal of This Project
 
-        finance_tracker
-            ├─ backend
-            │  ├─ .env
-            │  ├─ config
-            │  │  └─ db.js
-            │  ├─ controllers
-            │  │  └─ authController.js
-            │  ├─ middleware
-            │  │  └─ authMiddleware.js
-            │  ├─ models
-            │  │  └─ user.js
-            │  ├─ package-lock.json
-            │  ├─ package.json
-            │  ├─ routes
-            │  │  └─ authRoutes.js
-            │  └─ server.js
-            └─ frontend
-               ├─ package-lock.json
-               ├─ package.json
-               ├─ public
-               │  ├─ favicon.ico
-               │  ├─ index.html
-               │  ├─ istockphoto-1337144146-612x612.jpg
-               │  ├─ logo192.png
-               │  ├─ logo512.png
-               │  ├─ manifest.json
-               │  ├─ robots.txt
-               │  └─ Screenshot 2026-01-07 213010.png
-               ├─ README.md
-               └─ src
-                  ├─ App.css
-                  ├─ App.js
-                  ├─ App.test.js
-                  ├─ components
-                  │  ├─ Auth
-                  │  │  ├─ AuthContext.css
-                  │  │  ├─ AuthContext.jsx
-                  │  │  ├─ LoginPage.css
-                  │  │  ├─ LoginPage.jsx
-                  │  │  └─ ProtectedRoute.jsx
-                  │  ├─ Dashboard.css
-                  │  ├─ Dashboard.jsx
-                  │  ├─ Navbar.css
-                  │  ├─ Navbar.jsx
-                  │  ├─ pages
-                  │  │  ├─ budgets
-                  │  │  │  ├─ BudgetForm.css
-                  │  │  │  └─ BudgetForm.jsx
-                  │  │  ├─ intro
-                  │  │  │  ├─ welcome.jsx
-                  │  │  │  └─ WelcomePage.css
-                  │  │  └─ transactions
-                  │  │     ├─ Addtransactions.jsx
-                  │  │     ├─ TransactionForm.css
-                  │  │     └─ TransactionForm.jsx
-                  │  ├─ Report
-                  │  │  ├─ ReportPage.css
-                  │  │  └─ ReportPage.jsx
-                  │  ├─ ScrollToTop.jsx
-                  │  ├─ settings
-                  │  │  ├─ Settings.css
-                  │  │  └─ Settings.jsx
-                  │  ├─ UserDropdown.css
-                  │  └─ UserDropdown.jsx
-                  ├─ index.css
-                  ├─ index.js
-                  ├─ logo.svg
-                  ├─ reportWebVitals.js
-                  └─ setupTests.js
+Build a user-friendly, secure, and fast personal finance app that is easy to maintain and improve over time.

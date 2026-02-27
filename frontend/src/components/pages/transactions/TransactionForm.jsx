@@ -1,168 +1,212 @@
-import React, { useState } from "react";
-import { Plus,IndianRupee, Calendar, Tag, FileText } from "lucide-react";
+import { useState } from "react";
+import { IndianRupee, Calendar, Tag, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useEncryptedData } from "../../../hooks/useEncryptedData";
+import toast from "react-hot-toast";
 import "./TransactionForm.css";
 
+const CATEGORIES = {
+  income: ["Salary", "Freelance", "Investment", "Gift", "Other Income"],
+  expense: [
+    "Groceries",
+    "Rent",
+    "Utilities",
+    "Transportation",
+    "Entertainment",
+    "Healthcare",
+    "Education",
+    "Shopping",
+    "Dining",
+    "Other Expense",
+  ],
+};
+
 export default function TransactionForm() {
-  const [showForm, setShowForm] = useState(false);
-  const [transactions, setTransactions] = useState([]);
+  const navigate = useNavigate();
+  const { addData } = useEncryptedData("transaction");
+
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
+    type: "expense",
     amount: "",
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     category: "",
-    type: "",
-    discription: "",
+    description: "",
+    paymentMethod: "cash",
   });
 
-  const handleSubmit = () => {
-    if (!formData.amount || !formData.date || !formData.category) return;
+  // Handle input change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-    setTransactions([...transactions, { ...formData, id: Date.now() }]);
-    setFormData({
-      amount: "",
-      date: "",
-      category: "",
-      type: "expense",
-      discription: "",
-    });
-    setShowForm(false);
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "type" && { category: "" }),
+    }));
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  // Submit form (Encrypted Save)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    if (!formData.amount || !formData.category) {
+      toast.error("Please fill required fields");
+      setLoading(false);
+      return;
+    }
+
+    if (parseFloat(formData.amount) <= 0) {
+      toast.error("Amount must be greater than 0");
+      setLoading(false);
+      return;
+    }
+
+    const transactionData = {
+      ...formData,
+      amount: parseFloat(formData.amount),
+    };
+
+    const result = await addData(transactionData);
+
+    if (result) {
+      toast.success("Transaction added successfully!");
+      navigate("/dashboard");
+    }
+
+    setLoading(false);
   };
 
   return (
-    <>
-      <div className="page">
-        <div className="container">
-          <div className="header">
-            <h1>Transanctions</h1>
-            <button
-              className="primary-btn"
-              onClick={() => setShowForm(!showForm)}
+    <div className="page">
+      <div className="container">
+        {/* Header */}
+        <div className="header">
+          <h1>Transactions</h1>
+        </div>
+
+        {/* FORM CARD */}
+        <form className="card" onSubmit={handleSubmit}>
+          <h2>Add Transaction</h2>
+
+          {/* TYPE */}
+          <div className="form-group">
+            <label><h4>Type</h4></label>
+
+            <div className="radio-group">
+              <label>
+                <input
+                  type="radio"
+                  name="type"
+                  value="expense"
+                  checked={formData.type === "expense"}
+                  onChange={handleChange}
+                />
+                Expense
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  name="type"
+                  value="income"
+                  checked={formData.type === "income"}
+                  onChange={handleChange}
+                />
+                Income
+              </label>
+            </div>
+          </div>
+
+          {/* AMOUNT */}
+          <div className="form-group">
+            <label>
+              <IndianRupee size={14} /> <strong>Amount</strong>
+            </label>
+
+            <input
+              type="number"
+              name="amount"
+              value={formData.amount}
+              onChange={handleChange}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          {/* DATE */}
+          <div className="form-group">
+            <label>
+              <Calendar size={14} /> <strong>Date</strong>
+            </label>
+
+            <input
+              type="date"
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
+              max={new Date().toISOString().split("T")[0]}
+            />
+          </div>
+
+          {/* CATEGORY */}
+          <div className="form-group">
+            <label>
+              <Tag size={14} /> <strong>Category</strong>
+            </label>
+
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
             >
-              <Plus size={18} /> Add Transaction
+              <option value="">Select category</option>
+
+              {CATEGORIES[formData.type].map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* DESCRIPTION */}
+          <div className="form-group">
+            <label>
+              <FileText size={14} /> <strong>Description</strong>
+            </label>
+
+            <textarea
+              rows={3}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+            />
+          </div>
+
+          {/* ACTION BUTTONS */}
+          <div className="btn-group">
+            <button
+              type="submit"
+              className="primary-btn"
+              disabled={loading}
+            >
+              {loading ? "Encrypting & Saving..." : "Add Transaction"}
+            </button>
+
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => navigate("/dashboard")}
+            >
+              Cancel
             </button>
           </div>
-
-          {showForm && (
-            <div className="card">
-              <h2>Add Transactions</h2>
-              <div className="form-group">
-                <label><h4>Type</h4></label>
-                <div className="radio-group">
-                  <label>
-                    <input
-                      type="radio"
-                      name="type"
-                      value="expense"
-                      checked={formData.type === "expense"}
-                      onChange={handleChange}
-                    />
-                    Expense
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="type"
-                      value="income"
-                      checked={formData.type === "income"}
-                      onChange={handleChange}
-                    />
-                    Income
-                  </label>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>
-                  <IndianRupee size={14} /> <strong>Amount</strong>
-                </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="form-group">
-                <label>
-                  <Calendar size={14} /><strong> Date</strong>
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="form-group">
-                <label>
-                  {" "}
-                  <Tag size={14} /> <strong>Category</strong>
-                </label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                >
-                  <option value="">Select category</option>
-                  <option value="food">Food</option>
-                  <option value="transport">Transport</option>
-                  <option value="shopping">Shopping</option>
-                  <option value="bills">Bills</option>
-                  <option value="salary">Salary</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>
-                  {" "}
-                  <FileText size={14} /> <strong>Discription</strong>
-                </label>
-                <textarea
-                  rows={3}
-                  name="discription"
-                  value={formData.discription}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="btn-group">
-                <button className="primary-btn" onClick={handleSubmit}>
-                  Add
-                </button>
-                <button
-                  className="secondary-btn"
-                  onClick={() => setShowForm(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-          <div className="card">
-            <h2>Recent Transactions</h2>
-
-            {transactions.length === 0 ? (
-              <p className="empty">No transactions yet</p>
-            ) : (
-              transactions.map((t) => (
-                <div className="transaction" key={t.id}>
-                  <div>
-                    <p className="category">{t.category}</p>
-                    <p className="date">{t.date}</p>
-                    {t.description && <p className="desc">{t.description}</p>}
-                  </div>
-                  <div className={`amount ${t.type}`}>
-                    {t.type === "income" ? "+" : "-"}₹
-                    {Number(t.amount).toFixed(2)}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        </form>
       </div>
-    </>
+    </div>
   );
 }

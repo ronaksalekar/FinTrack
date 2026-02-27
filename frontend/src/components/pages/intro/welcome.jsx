@@ -1,29 +1,40 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Moon, Sun, ArrowRight, Check, X } from 'lucide-react';
-import axios from 'axios';
-import { useAuth } from 'C:/Notes/Projects/Project-1/finance_tracker/frontend/src/components/Auth/AuthContext.jsx'
-import './WelcomePage.css';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  User,
+  Calendar,
+  Moon,
+  Sun,
+  ArrowRight,
+  Check,
+  X,
+} from "lucide-react";
+import axios from "axios";
+import toast from "react-hot-toast";
+import { useAuth } from "../../Auth/AuthContext";
+import { API_BASE_URL } from "../../../config/api";
+import "./WelcomePage.css";
 
-const API_URL = 'http://localhost:5000/api/user';
+const API_URL = `${API_BASE_URL}/api/user`;
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, setUser, getAuthHeader } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    fullName: '',
-    age: '',
-    theme: 'light'
+    fullName: "",
+    age: "",
+    theme: "light",
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Pre-fill user's name from signup
   useEffect(() => {
     if (user) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        fullName: user.profile?.fullName || user.name || ''
+        fullName: user.profile?.fullName || "",
+        age: user.profile?.age || "",
+        theme: user.preferences?.theme || "light",
       }));
     }
   }, [user]);
@@ -31,50 +42,53 @@ export default function WelcomePage() {
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleThemeSelect = (theme) => {
     setFormData({
       ...formData,
-      theme: theme
+      theme,
     });
   };
 
   const handleNext = () => {
-    if (step === 1) {
-      if (!formData.fullName || !formData.age) {
-        alert('Please fill in all fields');
-        return;
-      }
+    if (step === 1 && (!formData.fullName || !formData.age)) {
+      toast.error("Please fill in your name and age");
+      return;
     }
+
     if (step < 3) {
       setStep(step + 1);
     }
   };
 
   const handleSkip = () => {
-    navigate('/dashboard');
+    navigate("/dashboard");
   };
 
   const handleComplete = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      
-      await axios.put(
-        `${API_URL}/preferences`,
-        formData,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const payload = {
+        ...formData,
+        age: Number(formData.age),
+        onboardingComplete: true,
+      };
 
-      navigate('/dashboard');
+      const res = await axios.put(`${API_URL}/preferences`, payload, {
+        headers: getAuthHeader(),
+      });
+
+      if (res.data?.user) {
+        setUser(res.data.user);
+      }
+
+      toast.success("Preferences saved");
+      navigate("/dashboard");
     } catch (error) {
-      console.error('Error saving preferences:', error);
-      alert('Failed to save preferences');
+      toast.error(error.response?.data?.message || "Failed to save preferences");
     } finally {
       setIsLoading(false);
     }
@@ -83,9 +97,14 @@ export default function WelcomePage() {
   return (
     <div className="welcome-overlay">
       <div className="welcome-backdrop" onClick={handleSkip}></div>
-      
+
       <div className="welcome-modal">
-        <button className="welcome-skip-btn" onClick={handleSkip} title="Skip onboarding" aria-label="Skip onboarding">
+        <button
+          className="welcome-skip-btn"
+          onClick={handleSkip}
+          title="Skip onboarding"
+          aria-label="Skip onboarding"
+        >
           <X size={20} />
         </button>
 
@@ -93,19 +112,19 @@ export default function WelcomePage() {
           <div className="welcome-progress-steps">
             {[1, 2, 3].map((num) => (
               <div key={num} className="welcome-progress-wrapper">
-                <div className={`welcome-progress-circle ${step >= num ? 'active' : ''}`}>
+                <div className={`welcome-progress-circle ${step >= num ? "active" : ""}`}>
                   {step > num ? <Check size={18} /> : num}
                 </div>
                 {num < 3 && (
-                  <div className={`welcome-progress-line ${step > num ? 'active' : ''}`} />
+                  <div className={`welcome-progress-line ${step > num ? "active" : ""}`} />
                 )}
               </div>
             ))}
           </div>
           <div className="welcome-progress-labels">
-            <span className={step === 1 ? 'active' : ''}>Personal Info</span>
-            <span className={step === 2 ? 'active' : ''}>Preferences</span>
-            <span className={step === 3 ? 'active' : ''}>About</span>
+            <span className={step === 1 ? "active" : ""}>Personal Info</span>
+            <span className={step === 2 ? "active" : ""}>Preferences</span>
+            <span className={step === 3 ? "active" : ""}>About</span>
           </div>
         </div>
 
@@ -116,8 +135,8 @@ export default function WelcomePage() {
                 <div className="welcome-icon-circle">
                   <User size={28} />
                 </div>
-                <h2>Welcome, {formData.fullName.split(' ')[0] || 'there'}! 🎉</h2>
-                <p>Let's complete your profile</p>
+                <h2>Welcome, {formData.fullName.split(" ")[0] || "there"}!</h2>
+                <p>Let&apos;s complete your profile</p>
               </div>
 
               <div className="welcome-form-group">
@@ -134,9 +153,6 @@ export default function WelcomePage() {
                     autoComplete="name"
                   />
                 </div>
-                <small style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                  You can update this if needed
-                </small>
               </div>
 
               <div className="welcome-form-group">
@@ -156,7 +172,7 @@ export default function WelcomePage() {
                 </div>
               </div>
 
-              <button onClick={handleNext} className="welcome-btn-primary">
+              <button onClick={handleNext} className="welcome-btn-primary" type="button">
                 Continue
                 <ArrowRight size={18} />
               </button>
@@ -172,8 +188,8 @@ export default function WelcomePage() {
 
               <div className="welcome-theme-grid">
                 <button
-                  onClick={() => handleThemeSelect('light')}
-                  className={`welcome-theme-card ${formData.theme === 'light' ? 'selected' : ''}`}
+                  onClick={() => handleThemeSelect("light")}
+                  className={`welcome-theme-card ${formData.theme === "light" ? "selected" : ""}`}
                   type="button"
                 >
                   <div className="welcome-theme-icon light">
@@ -181,7 +197,7 @@ export default function WelcomePage() {
                   </div>
                   <h3>Light Mode</h3>
                   <p>Clean and bright</p>
-                  {formData.theme === 'light' && (
+                  {formData.theme === "light" && (
                     <div className="welcome-check-icon">
                       <Check size={20} />
                     </div>
@@ -189,8 +205,8 @@ export default function WelcomePage() {
                 </button>
 
                 <button
-                  onClick={() => handleThemeSelect('dark')}
-                  className={`welcome-theme-card ${formData.theme === 'dark' ? 'selected' : ''}`}
+                  onClick={() => handleThemeSelect("dark")}
+                  className={`welcome-theme-card ${formData.theme === "dark" ? "selected" : ""}`}
                   type="button"
                 >
                   <div className="welcome-theme-icon dark">
@@ -198,7 +214,7 @@ export default function WelcomePage() {
                   </div>
                   <h3>Dark Mode</h3>
                   <p>Easy on eyes</p>
-                  {formData.theme === 'dark' && (
+                  {formData.theme === "dark" && (
                     <div className="welcome-check-icon">
                       <Check size={20} />
                     </div>
@@ -221,29 +237,29 @@ export default function WelcomePage() {
           {step === 3 && (
             <div className="welcome-step">
               <div className="welcome-header">
-                <h2>About FinTrack 💰</h2>
+                <h2>About FinTrack</h2>
                 <p>Your personal finance companion</p>
               </div>
 
               <div className="welcome-features">
                 <div className="welcome-feature blue">
-                  <h3>📊 Track Expenses</h3>
+                  <h3>Track Expenses</h3>
                   <p>Monitor transactions and categorize spending.</p>
                 </div>
 
                 <div className="welcome-feature green">
-                  <h3>🎯 Set Budgets</h3>
-                  <p>Create budgets and get alerts on limits.</p>
+                  <h3>Set Budgets</h3>
+                  <p>Create budgets and watch your limits.</p>
                 </div>
 
                 <div className="welcome-feature purple">
-                  <h3>📈 View Reports</h3>
-                  <p>Visualize data with charts and insights.</p>
+                  <h3>View Reports</h3>
+                  <p>Visualize your trends with clear analytics.</p>
                 </div>
 
                 <div className="welcome-feature pink">
-                  <h3>🔒 Secure & Private</h3>
-                  <p>Your data is encrypted and secure.</p>
+                  <h3>Secure and Private</h3>
+                  <p>Your server stores encrypted data blobs only.</p>
                 </div>
               </div>
 
@@ -251,13 +267,13 @@ export default function WelcomePage() {
                 <button onClick={() => setStep(2)} className="welcome-btn-secondary" type="button">
                   Back
                 </button>
-                <button 
-                  onClick={handleComplete} 
-                  className="welcome-btn-primary" 
+                <button
+                  onClick={handleComplete}
+                  className="welcome-btn-primary"
                   type="button"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Saving...' : 'Get Started'}
+                  {isLoading ? "Saving..." : "Get Started"}
                   <Check size={18} />
                 </button>
               </div>

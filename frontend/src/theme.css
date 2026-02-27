@@ -1,0 +1,212 @@
+:root {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #f3f4f6;
+  --surface-primary: #ffffff;
+  --surface-elevated: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-strong: #1f2937;
+  --border-color: #e5e7eb;
+  --input-bg: #ffffff;
+  --shadow-color: rgba(15, 23, 42, 0.1);
+  --tooltip-bg: #1f2937;
+  --tooltip-text: #f9fafb;
+  --chart-hole: #ffffff;
+}
+
+html[data-theme="dark"] {
+  --bg-primary: #0b1220;
+  --bg-secondary: #111827;
+  --surface-primary: #111827;
+  --surface-elevated: #172033;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
+  --text-strong: #f9fafb;
+  --border-color: #334155;
+  --input-bg: #0f172a;
+  --shadow-color: rgba(0, 0, 0, 0.45);
+  --tooltip-bg: #d1d5db;
+  --tooltip-text: #111827;
+  --chart-hole: #111827;
+}
+
+body {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dashboard,
+.settings,
+.reports,
+.page,
+.budget-page,
+.auth-loading {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.navbar,
+.reports-header,
+.settings-header,
+.settings-sidebar,
+.filters,
+.card,
+.notification-card,
+.transaction-item,
+.profile-dropdown,
+.auth-card,
+.welcome-modal,
+.welcome-theme-card,
+.quick button,
+.period button,
+.transaction,
+.budget-item {
+  background: var(--surface-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 4px 10px var(--shadow-color) !important;
+}
+
+.navbar-brand,
+.nav-link,
+.tab,
+.settings-header h1,
+.reports-header h1,
+.page-title,
+.transaction-name,
+.profile-name,
+.auth-header h1,
+.welcome-header h2,
+.welcome-theme-card h3,
+h1,
+h2,
+h3,
+h4,
+th,
+td {
+  color: var(--text-primary) !important;
+}
+
+.page-subtitle,
+.reports-header p,
+.settings-header p,
+.notification-text,
+.transaction-date,
+.date,
+.period,
+.notes,
+.desc,
+.empty,
+.auth-header p,
+.auth-toggle span,
+.auth-footer,
+.welcome-header p,
+.welcome-theme-card p,
+.welcome-progress-labels,
+.welcome-form-group label,
+.form-group label,
+.filters label,
+.chart-tag {
+  color: var(--text-secondary) !important;
+}
+
+input,
+select,
+textarea,
+option,
+.form-input,
+.theme-select,
+.auth-input-wrapper input,
+.welcome-input-wrapper input {
+  background: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.profile-divider,
+.danger-zone,
+th,
+td,
+.transaction,
+.transaction-item,
+.budget-item,
+.settings-header,
+.bar,
+.progress-bar {
+  border-color: var(--border-color) !important;
+}
+
+.secondary-btn,
+.welcome-btn-secondary,
+.welcome-skip-btn {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.tooltip {
+  background-color: var(--tooltip-bg);
+  color: var(--tooltip-text);
+}
+
+.tooltip::after {
+  border-color: var(--tooltip-bg) transparent transparent transparent;
+}
+
+.auth-input-wrapper > svg,
+.welcome-input-icon {
+  color: var(--text-secondary);
+}
+
+.recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] .auth-page {
+  background: linear-gradient(135deg, #0f172a, #111827, #172033);
+}
+
+html[data-theme="dark"] .welcome-theme-card.selected {
+  background: #1e293b;
+}
+
+html[data-theme="dark"] .welcome-feature.blue {
+  background: #172554;
+  border-color: #1d4ed8;
+}
+
+html[data-theme="dark"] .welcome-feature.green {
+  background: #052e16;
+  border-color: #16a34a;
+}
+
+html[data-theme="dark"] .welcome-feature.purple {
+  background: #3b0764;
+  border-color: #9333ea;
+}
+
+html[data-theme="dark"] .welcome-feature.pink {
+  background: #500724;
+  border-color: #db2777;
+}
+
+html[data-theme="dark"] .welcome-feature.blue h3,
+html[data-theme="dark"] .welcome-feature.blue p,
+html[data-theme="dark"] .welcome-feature.green h3,
+html[data-theme="dark"] .welcome-feature.green p,
+html[data-theme="dark"] .welcome-feature.purple h3,
+html[data-theme="dark"] .welcome-feature.purple p,
+html[data-theme="dark"] .welcome-feature.pink h3,
+html[data-theme="dark"] .welcome-feature.pink p {
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .info.blue {
+  background: #172554;
+  color: #dbeafe;
+}
+
+html[data-theme="dark"] .info.green {
+  background: #052e16;
+  color: #dcfce7;
+}

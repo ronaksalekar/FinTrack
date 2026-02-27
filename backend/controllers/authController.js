@@ -1,111 +1,148 @@
-const User = require('../models/user.js');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const User = require("../models/user");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const {
+  normalizeEmail,
+  isValidEmail,
+  isNonEmptyString,
+  toTrimmedString,
+} = require("../utils/validators");
+const { sendError, sendSuccess, sanitizeUser } = require("../utils/http");
 
-// Signup
+/* ================= TOKEN HELPER ================= */
+const generateToken = (user) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
+  return jwt.sign(
+    { id: user._id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || "7d" }
+  );
+};
+
+/* ================= SIGNUP ================= */
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const safeName = toTrimmedString(name);
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Please fill in all fields' });
+    if (!isNonEmptyString(safeName) || !isNonEmptyString(password) || !isNonEmptyString(normalizedEmail)) {
+      return sendError(res, 400, "Please fill all required fields");
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
+    if (!isValidEmail(normalizedEmail)) {
+      return sendError(res, 400, "Please provide a valid email");
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    if (password.length < 6) {
+      return sendError(res, 400, "Password must be at least 6 characters");
+    }
 
-    // Create new user with name in profile
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-      profile: {
-        fullName: name  // Save name to profile during signup
-      }
+    const exists = await User.findOne({ email: normalizedEmail });
+    if (exists) {
+      return sendError(res, 409, "Email already registered");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const user = await User.create({
+      email: normalizedEmail,
+      passwordHash,
+      profile: { fullName: safeName },
     });
 
-    await user.save();
-
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '7d'
-    });
-
-    res.status(201).json({
-      message: 'Account created successfully',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        profile: user.profile,
-        onboardingComplete: user.onboardingComplete
-      }
-    });
+    return sendSuccess(
+      res,
+      {
+        success: true,
+        token: generateToken(user),
+        user: sanitizeUser(user),
+      },
+      201
+    );
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    if (error.code === 11000) {
+      return sendError(res, 409, "Email already registered");
+    }
+
+    return sendError(res, 500, "Server error during signup");
   }
 };
 
-// Login
+/* ================= LOGIN ================= */
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    // Check if all fields are provided
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please fill in all fields' });
+    if (!isNonEmptyString(normalizedEmail) || !isNonEmptyString(password)) {
+      return sendError(res, 400, "Please fill all required fields");
     }
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
+
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendError(res, 401, "Invalid credentials");
     }
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendError(res, 401, "Invalid credentials");
     }
 
-    // Generate token
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '7d'
-    });
+    user.lastLogin = Date.now();
+    await user.save();
 
-    res.status(200).json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email
-      }
+    return sendSuccess(res, {
+      success: true,
+      token: generateToken(user),
+      user: sanitizeUser(user),
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    return sendError(res, 500, "Server error during login");
   }
 };
 
-// Get current user (protected)
+/* ================= GET USER ================= */
 const getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!req.userId) {
+      return sendError(res, 401, "Not authorized");
     }
-    res.status(200).json({ user });
+
+    const user = await User.findById(req.userId).select("-passwordHash -recoveryKeyHash");
+
+    if (!user) {
+      return sendError(res, 404, "User not found");
+    }
+
+    return sendSuccess(res, { success: true, user: sanitizeUser(user) });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    return sendError(res, 500, "Server error");
   }
 };
 
-module.exports = { signup, login, getUser };
+/* ================= VALIDATE TOKEN ================= */
+const validateToken = async (req, res) => {
+  return sendSuccess(res, {
+    valid: true,
+    user: sanitizeUser(req.user),
+  });
+};
+
+/* ================= RECOVER ACCOUNT (TEMP PLACEHOLDER) ================= */
+const recoverAccount = async (req, res) => {
+  return sendError(res, 501, "Recovery flow not implemented yet");
+};
+
+module.exports = {
+  signup,
+  login,
+  getUser,
+  validateToken,
+  recoverAccount,
+};

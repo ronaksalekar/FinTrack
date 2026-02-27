@@ -1,186 +1,225 @@
-import React, { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import toast from "react-hot-toast";
 import "./LoginPage.css";
 
 export default function LoginPage() {
   const { login, signup } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
 
-  const handleChange = (e) => {
-    setError("");
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [showRecoveryKey, setShowRecoveryKey] = useState(false);
+  const [recoveryKey, setRecoveryKey] = useState("");
+
+  /* ================= Prevent Refresh During Recovery Key ================= */
+  useEffect(() => {
+    if (showRecoveryKey) {
+      window.onbeforeunload = () => true;
+    }
+    return () => (window.onbeforeunload = null);
+  }, [showRecoveryKey]);
+
+  /* ================= SUBMIT ================= */
   const handleSubmit = async () => {
-    setError("");
     setIsLoading(true);
 
-    if (isLogin) {
-      // Login Logic
-      if (!formData.email || !formData.password) {
-        setError("Please fill all the fields!");
-        setIsLoading(false);
-        return;
-      }
+    if (!email || !email.includes("@")) {
+      toast.error("Enter a valid email");
+      setIsLoading(false);
+      return;
+    }
 
-      const result = await login(formData.email, formData.password);
+    if (!isLogin && !name) {
+      toast.error("Enter your name");
+      setIsLoading(false);
+      return;
+    }
 
-      if (result.success) {
-        const onboardingComplete = localStorage.getItem('onboardingComplete');
-        if (onboardingComplete === 'true') {
-          navigate("/dashboard");
+    if (!isLogin && password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      if (isLogin) {
+        const result = await login(email, password);
+
+        if (result.success) {
+          if (!result.user.onboardingComplete) {
+            navigate("/welcome");
+          } else {
+            navigate("/dashboard");
+          }
         } else {
-          navigate("/welcome");
+          toast.error(result.message || "Login failed");
         }
       } else {
-        setError(result.message);
-      }
-    } else {
-      // Signup Logic
-      if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-        setError("Please fill in all the details!");
-        setIsLoading(false);
-        return;
-      }
+        const result = await signup(name, email, password);
 
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match!");
-        setIsLoading(false);
-        return;
+        if (result.success) {
+          if (!result.user.onboardingComplete) {
+            navigate("/welcome");
+          } else {
+            navigate("/dashboard");
+          }
+        } else {
+          toast.error(result.message || "Signup failed");
+        }
       }
-
-      const result = await signup(formData.name, formData.email, formData.password);
-
-      if (result.success) {
-        navigate("/welcome");
-      } else {
-        setError(result.message);
-      }
+    } catch {
+      toast.error("Something went wrong");
     }
 
     setIsLoading(false);
   };
 
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-    setError("");
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    });
-  };
+  /* ================= RECOVERY KEY SCREEN ================= */
+  if (showRecoveryKey) {
+    return (
+      <div className="auth-page">
+        <div className="auth-container">
+          <div className="auth-card">
+            <div className="auth-header">
+              <h1>⚠️ Save Your Recovery Key</h1>
+              <p>This is the ONLY way to recover your encrypted data.</p>
+            </div>
 
+            <div className="error-box">
+              <strong>Important:</strong> Store this key securely.
+            </div>
+
+            <div className="auth-form-group">
+              <div className="recovery-key-display">
+                <code>{recoveryKey}</code>
+              </div>
+            </div>
+
+            <button
+              className="auth-submit-btn"
+              onClick={() => {
+                navigator.clipboard.writeText(recoveryKey);
+                toast.success("Recovery key copied!");
+              }}
+            >
+              Copy to Clipboard
+            </button>
+
+            <button
+              className="auth-submit-btn"
+              onClick={() => {
+                setShowRecoveryKey(false);
+                navigate("/dashboard");
+              }}
+            >
+              I've Saved My Recovery Key
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ================= MAIN LOGIN FORM ================= */
   return (
     <div className="auth-page">
       <div className="auth-container">
         <div className="auth-card">
           <div className="auth-header">
-            <h1>{isLogin ? "Welcome Back!" : "Create account"}</h1>
+            <h1>{isLogin ? "Welcome Back!" : "Create Account"}</h1>
             <p>
-              {isLogin ? "Login into your account!" : "Sign Up to get started"}
+              {isLogin
+                ? "Login to access your encrypted finance data"
+                : "Your data is end-to-end encrypted. We cannot access it."}
             </p>
           </div>
-
-          {error && (
-            <div className="error-box" role="alert">
-              <p>{error}</p>
-            </div>
-          )}
 
           <div className="auth-form">
             {!isLogin && (
               <div className="auth-form-group">
-                <label htmlFor="signup-name">Full Name</label>
+                <label>Full Name</label>
                 <div className="auth-input-wrapper">
-                  <User size={18} aria-hidden="true" />
+                  <Mail size={18} />
                   <input
-                    id="signup-name"
                     type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="Enter your name"
-                    autoComplete="name"
+                    value={name}
+                    placeholder="Your full name"
+                    onChange={(e) => setName(e.target.value)}
                   />
                 </div>
               </div>
             )}
 
+            {/* EMAIL */}
             <div className="auth-form-group">
-              <label htmlFor="auth-email">Email</label>
+              <label>Email</label>
               <div className="auth-input-wrapper">
-                <Mail size={18} aria-hidden="true" />
+                <Mail size={18} />
                 <input
-                  id="auth-email"
                   type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={email}
                   placeholder="you@gmail.com"
-                  autoComplete="email"
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
 
+            {/* PASSWORD */}
             <div className="auth-form-group">
-              <label htmlFor="auth-password">Password</label>
+              <label>Password</label>
               <div className="auth-input-wrapper">
-                <Lock size={18} aria-hidden="true" />
+                <Lock size={18} />
                 <input
-                  id="auth-password"
                   type={showPassword ? "text" : "password"}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  value={password}
+                  placeholder="At least 12 characters"
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                   type="button"
                   className="auth-eye-btn"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
+            {/* CONFIRM PASSWORD */}
             {!isLogin && (
               <div className="auth-form-group">
-                <label htmlFor="auth-confirm-password">Confirm Password</label>
+                <label>Confirm Password</label>
                 <div className="auth-input-wrapper">
-                  <Lock size={18} aria-hidden="true" />
+                  <Lock size={18} />
                   <input
-                    id="auth-confirm-password"
-                    type={showPassword ? "text" : "password"}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
+                    type="password"
+                    value={confirmPassword}
+                    placeholder="Re-enter password"
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                   />
                 </div>
               </div>
             )}
 
-            {isLogin && (
-              <div className="auth-forgot">
-                <button type="button">Forgot password?</button>
+            {!isLogin && (
+              <div className="error-box">
+                🔒 Your data is encrypted locally. If you forget your password,
+                you will need your recovery key.
               </div>
             )}
 
@@ -190,14 +229,16 @@ export default function LoginPage() {
               disabled={isLoading}
               type="button"
             >
-              {isLoading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
+              {isLoading ? "Processing..." : isLogin ? "Login" : "Sign Up"}
             </button>
 
             <div className="auth-toggle">
               <span>
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                {isLogin
+                  ? "Don't have an account? "
+                  : "Already have an account? "}
               </span>
-              <button type="button" onClick={toggleMode}>
+              <button type="button" onClick={() => setIsLogin(!isLogin)}>
                 {isLogin ? "Sign Up" : "Login"}
               </button>
             </div>

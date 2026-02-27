@@ -1,96 +1,180 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import axios from "axios";
-import "./AuthContext.css";
+import { deriveKey } from "../../utils/encryption";
+import { API_BASE_URL } from "../../config/api";
 
 const AuthContext = createContext(null);
-const API_URL = "http://localhost:5000/api/auth";
+const API_URL = `${API_BASE_URL}/api/auth`;
+const TOKEN_KEY = "token";
+const ENC_KEY = "encKey";
+const ENC_ALT_KEY = "encKeyAlt";
+
+const getAuthErrorMessage = (err, fallbackMessage) => {
+  const responseData = err.response?.data;
+
+  if (typeof responseData === "string" && responseData.trim()) {
+    return responseData;
+  }
+
+  if (typeof responseData?.message === "string" && responseData.message.trim()) {
+    return responseData.message;
+  }
+
+  if (err.response?.status === 429) {
+    const retryAfter = responseData?.retryAfterSeconds || err.response?.headers?.["retry-after"];
+    if (retryAfter) {
+      return `Too many attempts. Try again in ${retryAfter}s.`;
+    }
+    return "Too many attempts. Please wait and try again.";
+  }
+
+  return fallbackMessage;
+};
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [encryptionKey, setEncryptionKeyState] = useState(
+    localStorage.getItem(ENC_KEY) || null
+  );
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      axios
-        .get(`${API_URL}/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((res) => {
-          setUser(res.data.user);
-        })
-        .catch(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-        })
-        .finally(() => setLoading(false));
+  const setEncryptionKey = useCallback((key) => {
+    setEncryptionKeyState(key);
+
+    if (key) {
+      localStorage.setItem(ENC_KEY, key);
     } else {
-      setLoading(false);
+      localStorage.removeItem(ENC_KEY);
     }
   }, []);
 
- const login = async (email, password) => {
-  try {
-    const res = await axios.post(`${API_URL}/login`, { email, password });
-    localStorage.setItem("token", res.data.token);
-    setUser(res.data.user);
-    
-    // Save onboarding status
-    if (res.data.user.onboardingComplete) {
-      localStorage.setItem('onboardingComplete', 'true');
-    }
-    
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Login failed",
-    };
-  }
-};
+  const getAuthHeader = useCallback(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
 
-const signup = async (name, email, password) => {
-  try {
-    const res = await axios.post(`${API_URL}/signup`, {
-      name,
-      email,
-      password,
-    });
-    localStorage.setItem("token", res.data.token);
-    setUser(res.data.user);
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Signup failed",
+  const persistLogin = useCallback(
+    (resData, password) => {
+      setUser(resData.user);
+      localStorage.setItem(TOKEN_KEY, resData.token);
+
+      const derivedKey = deriveKey(
+        password,
+        resData.user.email.toLowerCase()
+      ).toString();
+
+      setEncryptionKey(password);
+      localStorage.setItem(ENC_ALT_KEY, derivedKey);
+    },
+    [setEncryptionKey]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const bootstrapUser = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        if (isMounted) setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const res = await axios.get(`${API_URL}/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (isMounted) {
+          setUser(res.data.user);
+        }
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+      } finally {
+        if (isMounted) setAuthLoading(false);
+      }
     };
-  }
-};
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+
+    bootstrapUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const login = async (email, password) => {
+    try {
+      const res = await axios.post(`${API_URL}/login`, {
+        email,
+        password,
+      });
+
+      persistLogin(res.data, password);
+
+      return {
+        success: true,
+        user: res.data.user,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        message: getAuthErrorMessage(err, "Login failed"),
+      };
+    }
   };
 
-  if (loading) {
-    return <div className="auth-loading">Loading...</div>;
-  }
+  const signup = async (name, email, password) => {
+    try {
+      const res = await axios.post(`${API_URL}/signup`, {
+        name,
+        email,
+        password,
+      });
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        signup,
-        logout,
-        isAuthenticated: Boolean(user),
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+      persistLogin(res.data, password);
+
+      return {
+        success: true,
+        user: res.data.user,
+      };
+    } catch (err) {
+      return {
+        success: false,
+        message: getAuthErrorMessage(err, "Signup failed"),
+      };
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    setEncryptionKey(null);
+    localStorage.removeItem(ENC_ALT_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+  };
+
+  const value = {
+    user,
+    setUser,
+    login,
+    signup,
+    logout,
+    encryptionKey,
+    setEncryptionKey,
+    getAuthHeader,
+    authLoading,
+    isAuthenticated: Boolean(user),
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be inside AuthProvider");
+  return ctx;
 }

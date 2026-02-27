@@ -4,36 +4,34 @@ import {
   Lock,
   Bell,
   Globe,
-  Moon,
   Trash2,
   Save,
   Camera,
-  Mail,
-  Phone,
-  MapPin,
-  Shield,
+  Download,
 } from "lucide-react";
+import axios from "axios";
 import { useAuth } from "../Auth/AuthContext";
+import { useEncryptedData } from "../../hooks/useEncryptedData";
+import { API_BASE_URL } from "../../config/api";
+import toast from "react-hot-toast";
 import "./Settings.css";
 
-export default function SettingsPage() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("profile");
+const USER_API_URL = `${API_BASE_URL}/api/user`;
 
-  // Load user preferences from localStorage on mount
+export default function SettingsPage() {
+  const { user, setUser, logout, getAuthHeader } = useAuth();
+  const { data: transactions } = useEncryptedData("transaction");
+  const { data: budgets } = useEncryptedData("budget");
+
+  const [activeTab, setActiveTab] = useState("profile");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [profileData, setProfileData] = useState({
     fullName: "",
     email: "",
-    phone: "",
-    location: "",
     bio: "",
     age: "",
-  });
-
-  const [securityData, setSecurityData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
   });
 
   const [notifications, setNotifications] = useState({
@@ -45,43 +43,27 @@ export default function SettingsPage() {
   });
 
   const [preferences, setPreferences] = useState({
-    currency: "USD",
-    language: "en",
     theme: "light",
-    dateFormat: "MM/DD/YYYY",
   });
 
-  // Load data on component mount
   useEffect(() => {
-    // Get user preferences from welcome page
-    const savedPreferences = localStorage.getItem('userPreferences');
-    
-    if (savedPreferences) {
-      const prefs = JSON.parse(savedPreferences);
-      setProfileData({
-        fullName: prefs.fullName || "",
-        email: user?.email || "",
-        phone: "",
-        location: "",
-        bio: "",
-        age: prefs.age || "",
-      });
-      
-      // Update theme preference if set
-      if (prefs.theme) {
-        setPreferences(prev => ({
-          ...prev,
-          theme: prefs.theme
-        }));
-      }
-    } else if (user) {
-      // If no preferences saved, use user data from auth
-      setProfileData(prev => ({
-        ...prev,
-        fullName: user.name || "",
-        email: user.email || "",
-      }));
-    }
+    if (!user) return;
+
+    setProfileData({
+      fullName: user.profile?.fullName || "",
+      email: user.email || "",
+      bio: user.profile?.bio || "",
+      age: user.profile?.age ?? "",
+    });
+
+    setPreferences({
+      theme: user.preferences?.theme || "light",
+    });
+
+    setNotifications((prev) => ({
+      ...prev,
+      ...(user.notifications || {}),
+    }));
   }, [user]);
 
   const tabs = [
@@ -91,6 +73,27 @@ export default function SettingsPage() {
     { id: "preferences", label: "Preferences", icon: Globe },
   ];
 
+  const handleExportData = () => {
+    const exportData = {
+      user: { email: user?.email || "" },
+      transactions,
+      budgets,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `finance-backup-${new Date().toISOString().split("T")[0]}.json`;
+    link.click();
+
+    toast.success("Encrypted data exported");
+  };
+
   const handleToggle = (key) => {
     setNotifications((prev) => ({
       ...prev,
@@ -98,44 +101,75 @@ export default function SettingsPage() {
     }));
   };
 
-  const handleSaveProfile = () => {
-    // Update localStorage with new profile data
-    const currentPrefs = JSON.parse(localStorage.getItem('userPreferences') || '{}');
-    const updatedPrefs = {
-      ...currentPrefs,
-      fullName: profileData.fullName,
-      age: profileData.age,
-    };
-    localStorage.setItem('userPreferences', JSON.stringify(updatedPrefs));
-    alert('Profile updated successfully!');
+  const saveUserPreferences = async (payload, successMessage) => {
+    setIsSaving(true);
+    try {
+      const res = await axios.put(`${USER_API_URL}/preferences`, payload, {
+        headers: getAuthHeader(),
+      });
+
+      if (res.data?.user) {
+        setUser(res.data.user);
+      }
+
+      toast.success(successMessage);
+      return res.data?.user || null;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to save");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSavePreferences = () => {
-    const currentPrefs = JSON.parse(localStorage.getItem('userPreferences') || '{}');
-    const updatedPrefs = {
-      ...currentPrefs,
-      theme: preferences.theme,
-    };
-    localStorage.setItem('userPreferences', JSON.stringify(updatedPrefs));
-    alert('Preferences saved successfully!');
+  const handleSaveProfile = async () => {
+    await saveUserPreferences(
+      {
+        fullName: profileData.fullName,
+        age: profileData.age === "" ? "" : Number(profileData.age),
+        bio: profileData.bio,
+      },
+      "Profile updated"
+    );
+  };
+
+  const handleSavePreferences = async () => {
+    await saveUserPreferences(
+      {
+        theme: preferences.theme,
+      },
+      "Preferences updated"
+    );
+  };
+
+  const handleSaveNotifications = async () => {
+    await saveUserPreferences(
+      {
+        notifications,
+      },
+      "Notifications updated"
+    );
+  };
+
+  const handleDeleteAllData = () => {
+    toast.error("Bulk delete endpoint is not implemented");
+    setShowDeleteConfirm(false);
   };
 
   const getInitials = () => {
-    if (profileData.fullName) {
-      const names = profileData.fullName.split(' ');
-      if (names.length >= 2) {
-        return `${names[0][0]}${names[1][0]}`.toUpperCase();
-      }
-      return names[0][0].toUpperCase();
-    }
-    return 'U';
+    if (!profileData.fullName) return "U";
+    return profileData.fullName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
   return (
     <div className="settings">
       <div className="settings-header">
         <h1>Settings</h1>
-        <p>Manage your account settings and preferences</p>
+        <p>Manage account, privacy and preferences</p>
       </div>
 
       <div className="settings-container">
@@ -162,151 +196,94 @@ export default function SettingsPage() {
 
               <div className="avatar-row">
                 <div className="avatar">{getInitials()}</div>
-                <button className="primary-btn">
-                  <Camera size={16} />
-                  Change Photo
+                <button className="primary-btn" type="button">
+                  <Camera size={16} /> Change Photo
                 </button>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Full Name</label>
+                <label>Full Name</label>
                 <input
                   value={profileData.fullName}
                   onChange={(e) =>
-                    setProfileData((prev) => ({
-                      ...prev,
-                      fullName: e.target.value,
-                    }))
+                    setProfileData({ ...profileData, fullName: e.target.value })
                   }
                   className="form-input"
-                  placeholder="Enter your full name"
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Age</label>
+                <label>Age</label>
                 <input
                   type="number"
-                  value={profileData.age}
-                  onChange={(e) =>
-                    setProfileData((prev) => ({
-                      ...prev,
-                      age: e.target.value,
-                    }))
-                  }
-                  className="form-input"
-                  placeholder="Enter your age"
                   min="13"
                   max="120"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input
-                  value={profileData.email}
+                  value={profileData.age}
                   onChange={(e) =>
-                    setProfileData((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
+                    setProfileData({ ...profileData, age: e.target.value })
                   }
                   className="form-input"
-                  placeholder="your@email.com"
-                  disabled
-                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
                 />
-                <small style={{ color: '#6b7280', fontSize: '12px' }}>
-                  Email cannot be changed
-                </small>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Bio</label>
+                <label>Bio</label>
                 <textarea
-                  rows="4"
                   value={profileData.bio}
                   onChange={(e) =>
-                    setProfileData((prev) => ({
-                      ...prev,
-                      bio: e.target.value,
-                    }))
+                    setProfileData({ ...profileData, bio: e.target.value })
                   }
-                  className="form-textarea"
-                  placeholder="Tell us about yourself..."
+                  className="form-input"
                 />
               </div>
 
-              <button className="primary-btn" onClick={handleSaveProfile}>
-                <Save size={16} />
-                Save Changes
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  value={profileData.email}
+                  disabled
+                  className="form-input"
+                  style={{ opacity: 0.6 }}
+                />
+              </div>
+
+              <button
+                className="primary-btn"
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                type="button"
+              >
+                <Save size={16} /> {isSaving ? "Saving..." : "Save Changes"}
               </button>
             </div>
           )}
 
           {activeTab === "security" && (
             <div className="card">
-              <h2 className="card-title">Security</h2>
+              <h2>Privacy and Security</h2>
 
-              <div className="form-group">
-                <label className="form-label">Current Password</label>
-                <input
-                  type="password"
-                  value={securityData.currentPassword}
-                  onChange={(e) =>
-                    setSecurityData((prev) => ({
-                      ...prev,
-                      currentPassword: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter current password"
-                  className="form-input"
-                />
+              <p className="encryption-status">End-to-end encryption active</p>
+
+              <div className="setting-item">
+                <h4>Export Encrypted Data</h4>
+                <button className="secondary-btn" onClick={handleExportData}>
+                  <Download size={16} /> Export Data
+                </button>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">New Password</label>
-                <input
-                  type="password"
-                  value={securityData.newPassword}
-                  onChange={(e) =>
-                    setSecurityData((prev) => ({
-                      ...prev,
-                      newPassword: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter new password"
-                  className="form-input"
-                />
+              <div className="setting-item">
+                <p>
+                  You have {transactions.length} transactions and {budgets.length} budgets
+                </p>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Confirm Password</label>
-                <input
-                  type="password"
-                  value={securityData.confirmPassword}
-                  onChange={(e) =>
-                    setSecurityData((prev) => ({
-                      ...prev,
-                      confirmPassword: e.target.value,
-                    }))
-                  }
-                  placeholder="Re-enter new password"
-                  className="form-input"
-                />
-              </div>
-
-              <button className="primary-btn">
-                <Lock size={16} />
-                Update Password
-              </button>
 
               <div className="danger-zone">
                 <h3>Danger Zone</h3>
-                <p>Once you delete your account, there is no going back.</p>
-                <button className="danger-btn">
-                  <Trash2 size={16} />
-                  Delete Account
+                <button
+                  className="danger-btn"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 size={16} /> Delete All Data
                 </button>
               </div>
             </div>
@@ -318,19 +295,7 @@ export default function SettingsPage() {
 
               {Object.keys(notifications).map((key) => (
                 <div className="notification-card" key={key}>
-                  <div>
-                    <span className="notification-text">
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </span>
-                    <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
-                      {key === 'emailNotifications' && 'Receive notifications via email'}
-                      {key === 'pushNotifications' && 'Receive push notifications'}
-                      {key === 'budgetAlerts' && 'Get alerts when approaching budget limits'}
-                      {key === 'weeklyReports' && 'Receive weekly spending reports'}
-                      {key === 'transactionAlerts' && 'Get notified of new transactions'}
-                    </p>
-                  </div>
-
+                  <span className="notification-text">{key}</span>
                   <label className="switch">
                     <input
                       type="checkbox"
@@ -342,9 +307,13 @@ export default function SettingsPage() {
                 </div>
               ))}
 
-              <button className="primary-btn">
-                <Save size={16} />
-                Save Preferences
+              <button
+                className="primary-btn"
+                onClick={handleSaveNotifications}
+                disabled={isSaving}
+                type="button"
+              >
+                <Save size={16} /> {isSaving ? "Saving..." : "Save Notifications"}
               </button>
             </div>
           )}
@@ -352,33 +321,59 @@ export default function SettingsPage() {
           {activeTab === "preferences" && (
             <div className="card">
               <h2>Preferences</h2>
-              
+
               <div className="form-group">
-                <label className="form-label">Theme</label>
+                <label>Theme</label>
                 <select
                   value={preferences.theme}
                   onChange={(e) =>
-                    setPreferences((prev) => ({
-                      ...prev,
-                      theme: e.target.value,
-                    }))
+                    setPreferences({ ...preferences, theme: e.target.value })
                   }
                   className="theme-select"
                 >
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
+                  <option value="auto">Auto</option>
                 </select>
               </div>
 
+              <button
+                className="primary-btn"
+                onClick={handleSavePreferences}
+                disabled={isSaving}
+                type="button"
+              >
+                <Save size={16} /> {isSaving ? "Saving..." : "Save Preferences"}
+              </button>
 
-              <button className="primary-btn" onClick={handleSavePreferences}>
-                <Save size={16} />
-                Save Preferences
+              <button className="btn-logout" onClick={logout} type="button">
+                Logout
               </button>
             </div>
           )}
         </main>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h2>Delete all data?</h2>
+            <p>This cannot be undone.</p>
+            <div className="modal-actions">
+              <button
+                className="secondary-btn"
+                onClick={() => setShowDeleteConfirm(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button className="danger-btn" onClick={handleDeleteAllData} type="button">
+                Delete Everything
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
