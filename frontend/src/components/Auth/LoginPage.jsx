@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [showRecoveryKey, setShowRecoveryKey] = useState(false);
-  const [recoveryKey, setRecoveryKey] = useState("");
+  const [recoveryKey] = useState("");
 
   /* ================= Prevent Refresh During Recovery Key ================= */
   useEffect(() => {
