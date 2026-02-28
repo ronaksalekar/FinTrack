@@ -7,6 +7,7 @@ const {
   updateData,
   deleteData,
   bulkCreateData,
+  deleteAllUserData,
 } = require("../controllers/dataControllers");
 
 const { protect } = require("../middleware/authMiddleware");
@@ -21,7 +22,8 @@ router.post("/bulk", bulkCreateData);
 /* ========= BASE ROUTES ========= */
 router.route("/")
   .get(getUserData)
-  .post(createData);
+  .post(createData)
+  .delete(deleteAllUserData);
 
 /* ========= SINGLE ITEM ========= */
 router.route("/:id")

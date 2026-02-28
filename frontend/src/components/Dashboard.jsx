@@ -23,10 +23,7 @@ import {
 } from "recharts";
 import { useEncryptedData } from "../hooks/useEncryptedData";
 import { formatCurrency } from "../utils/currency";
-import {
-  PERIOD_FILTERS,
-  PERIOD_LABELS,
-} from "../utils/analytics";
+import { PERIOD_FILTERS, PERIOD_LABELS } from "../utils/analytics";
 import { useAnalyticsWorker } from "../hooks/useAnalyticsWorker";
 import "./Dashboard.css";
 
@@ -73,12 +70,8 @@ export default function Dashboard() {
     initialized: budgetsInitialized,
   } = useEncryptedData("budget", { pageSize: 50 });
 
-  const {
-    filteredTransactions,
-    trendData,
-    categoryBreakdown,
-    analyticsLoading,
-  } = useAnalyticsWorker(transactions, selectedPeriod);
+  const { filteredTransactions, trendData, categoryBreakdown, analyticsLoading } =
+    useAnalyticsWorker(transactions, selectedPeriod);
 
   const isInitialLoading =
     (!transactionsInitialized && transactionsLoading) || (!budgetsInitialized && budgetsLoading);
@@ -118,7 +111,7 @@ export default function Dashboard() {
     () =>
       [...filteredTransactions]
         .sort((a, b) => new Date(b.date || b._timestamp) - new Date(a.date || a._timestamp))
-        .slice(0, 5)
+        .slice(0, 6)
         .map((item) => ({
           id: item._id,
           name: item.description || item.category || "Transaction",
@@ -131,39 +124,41 @@ export default function Dashboard() {
 
   const formattedBudgets = useMemo(
     () =>
-      budgets.map((budget, index) => {
-        const spent = Number(budgetsByCategory[budget.category] || 0);
-        const total = Number(budget.limit || 0);
-        const usage = total > 0 ? (spent / total) * 100 : 0;
-        const roundedUsage = Math.round(usage);
-        const remaining = total - spent;
+      budgets
+        .map((budget) => {
+          const spent = Number(budgetsByCategory[budget.category] || 0);
+          const total = Number(budget.limit || 0);
+          const usage = total > 0 ? (spent / total) * 100 : 0;
+          const roundedUsage = Math.round(usage);
+          const remaining = total - spent;
 
-        let statusLabel = "On Track";
-        let statusClass = "status-good";
-        let barClass = "bar-good";
+          let statusLabel = "On Track";
+          let statusClass = "is-good";
+          let barClass = "is-good";
 
-        if (usage > 100) {
-          statusLabel = "Over Budget";
-          statusClass = "status-danger";
-          barClass = "bar-danger";
-        } else if (usage >= 80) {
-          statusLabel = "Near Limit";
-          statusClass = "status-warn";
-          barClass = "bar-warn";
-        }
+          if (usage > 100) {
+            statusLabel = "Over Budget";
+            statusClass = "is-danger";
+            barClass = "is-danger";
+          } else if (usage >= 80) {
+            statusLabel = "Near Limit";
+            statusClass = "is-warn";
+            barClass = "is-warn";
+          }
 
-        return {
-          category: budget.category,
-          spent,
-          total,
-          remaining,
-          usage: roundedUsage,
-          progress: Math.min(Math.max(usage, 0), 100),
-          statusLabel,
-          statusClass,
-          barClass,
-        };
-      }).sort((a, b) => b.usage - a.usage),
+          return {
+            category: budget.category,
+            spent,
+            total,
+            remaining,
+            usage: roundedUsage,
+            progress: Math.min(Math.max(usage, 0), 100),
+            statusLabel,
+            statusClass,
+            barClass,
+          };
+        })
+        .sort((a, b) => b.usage - a.usage),
     [budgets, budgetsByCategory]
   );
 
@@ -171,17 +166,17 @@ export default function Dashboard() {
 
   if (isInitialLoading) {
     return (
-      <div className="dashboard">
-        <div className="dashboard-container">
-          <div className="skeleton-row">
-            <div className="skeleton-block title" />
-            <div className="skeleton-block subtitle" />
+      <div className="dashboard-page">
+        <div className="dashboard-shell">
+          <div className="dashboard-skeleton-row">
+            <div className="dashboard-skeleton-block title" />
+            <div className="dashboard-skeleton-block subtitle" />
           </div>
-          <div className="skeleton-grid">
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
+          <div className="dashboard-skeleton-grid">
+            <div className="dashboard-skeleton-card" />
+            <div className="dashboard-skeleton-card" />
+            <div className="dashboard-skeleton-card" />
+            <div className="dashboard-skeleton-card" />
           </div>
         </div>
       </div>
@@ -189,21 +184,20 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="dashboard">
-      <div className="dashboard-container">
-        <div className="header">
-          <h2 className="page-title">Dashboard</h2>
-          <p className="page-subtitle">
-            Showing {PERIOD_LABELS[selectedPeriod]} performance
-          </p>
-          {analyticsLoading && <span className="updating-tag">Updating analytics...</span>}
-        </div>
+    <div className="dashboard-page">
+      <div className="dashboard-shell">
+        <header className="dashboard-head">
+          <p className="dashboard-kicker">Overview</p>
+          <h1>Dashboard</h1>
+          <p className="dashboard-subtitle">Showing {PERIOD_LABELS[selectedPeriod]} performance</p>
+          {analyticsLoading && <span className="dashboard-updating">Updating analytics...</span>}
+        </header>
 
-        <div className="period">
+        <div className="dashboard-period">
           {PERIOD_FILTERS.map((period) => (
             <button
               key={period.value}
-              className={selectedPeriod === period.value ? "active" : ""}
+              className={selectedPeriod === period.value ? "dashboard-period-btn active" : "dashboard-period-btn"}
               onClick={() => setSelectedPeriod(period.value)}
               type="button"
             >
@@ -212,38 +206,49 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="stats">
-          <div className="stat gradient">
-            <Wallet />
-            <h3>{formatCurrency(stats.totalBalance)}</h3>
-            <span>Total Balance</span>
-          </div>
+        <section className="dashboard-stats">
+          <article className="dashboard-stat is-balance">
+            <div className="dashboard-stat-icon">
+              <Wallet size={18} />
+            </div>
+            <p className="dashboard-stat-label">Total Balance</p>
+            <p className="dashboard-stat-value">{formatCurrency(stats.totalBalance)}</p>
+          </article>
 
-          <div className="stat income">
-            <TrendingUp />
-            <h3>{formatCurrency(stats.income)}</h3>
-            <span>Income</span>
-          </div>
+          <article className="dashboard-stat is-income">
+            <div className="dashboard-stat-icon">
+              <TrendingUp size={18} />
+            </div>
+            <p className="dashboard-stat-label">Income</p>
+            <p className="dashboard-stat-value">{formatCurrency(stats.income)}</p>
+          </article>
 
-          <div className="stat expense">
-            <TrendingDown />
-            <h3>{formatCurrency(stats.expenses)}</h3>
-            <span>Expenses</span>
-          </div>
+          <article className="dashboard-stat is-expense">
+            <div className="dashboard-stat-icon">
+              <TrendingDown size={18} />
+            </div>
+            <p className="dashboard-stat-label">Expenses</p>
+            <p className="dashboard-stat-value">{formatCurrency(stats.expenses)}</p>
+          </article>
 
-          <div className="stat savings">
-            <IndianRupee />
-            <h3>{formatCurrency(stats.savings)}</h3>
-            <span>Savings</span>
-          </div>
-        </div>
+          <article className="dashboard-stat is-savings">
+            <div className="dashboard-stat-icon">
+              <IndianRupee size={18} />
+            </div>
+            <p className="dashboard-stat-label">Savings</p>
+            <p className="dashboard-stat-value">{formatCurrency(stats.savings)}</p>
+          </article>
+        </section>
 
-        <div className="analysis">
-          <div className="card">
-            <h3>Income vs Expense Trend</h3>
-            <p className="chart-tag">{PERIOD_LABELS[selectedPeriod]}</p>
+        <section className="dashboard-charts">
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-head">
+              <h2>Income vs Expense Trend</h2>
+              <p>{PERIOD_LABELS[selectedPeriod]}</p>
+            </div>
+
             {hasTrendData ? (
-              <div className="chart">
+              <div className="dashboard-chart">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
@@ -274,15 +279,18 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="empty">No transactions in this period</p>
+              <p className="dashboard-empty">No transactions in this period</p>
             )}
-          </div>
+          </article>
 
-          <div className="card">
-            <h3>Expense Breakdown</h3>
-            <p className="chart-tag">By category</p>
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-head">
+              <h2>Expense Breakdown</h2>
+              <p>By category</p>
+            </div>
+
             {categoryBreakdown.length > 0 ? (
-              <div className="pie">
+              <div className="dashboard-pie">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -307,90 +315,103 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="empty">No expense data in this period</p>
+              <p className="dashboard-empty">No expense data in this period</p>
             )}
-          </div>
-        </div>
+          </article>
+        </section>
 
-        <div className="content-grid">
-          <div className="card">
-            <h3>Recent Transactions</h3>
+        <section className="dashboard-lists">
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-head">
+              <h2>Recent Transactions</h2>
+              <p>Latest entries from loaded history</p>
+            </div>
 
             {recentTransactions.length > 0 ? (
-              recentTransactions.map((item) => (
-                <div className="transaction-item" key={item.id}>
-                  <div className="transaction-info">
-                    <span className="transaction-name">{item.name}</span>
-                    <span className="transaction-date">{item.date}</span>
+              <div className="dashboard-transaction-list">
+                {recentTransactions.map((item) => (
+                  <div className="dashboard-transaction-item" key={item.id}>
+                    <div className="dashboard-transaction-meta">
+                      <p className="dashboard-transaction-name">{item.name}</p>
+                      <p className="dashboard-transaction-date">{item.date}</p>
+                    </div>
+
+                    <p
+                      className={
+                        item.type === "income"
+                          ? "dashboard-transaction-amount income"
+                          : "dashboard-transaction-amount expense"
+                      }
+                    >
+                      {item.type === "income" ? "+" : "-"}
+                      {formatCurrency(Math.abs(item.amount))}
+                    </p>
                   </div>
-
-                  <span
-                    className={`transaction-amount ${item.type === "income" ? "income" : "expense"}`}
-                  >
-                    {item.type === "income" ? "+" : "-"}
-                    {formatCurrency(Math.abs(item.amount))}
-                  </span>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <p className="empty">No transactions in this period</p>
+              <p className="dashboard-empty">No transactions in this period</p>
             )}
-          </div>
+          </article>
 
-          <div className="card">
-            <h3>Spending vs Budget</h3>
-            {formattedBudgets.length > 0 && (
-              <p className="budget-summary">
-                {overBudgetCount} of {formattedBudgets.length} budgets over limit
-              </p>
-            )}
+          <article className="dashboard-panel">
+            <div className="dashboard-panel-head">
+              <h2>Spending vs Budget</h2>
+              {formattedBudgets.length > 0 && (
+                <p>
+                  {overBudgetCount} of {formattedBudgets.length} budgets over limit
+                </p>
+              )}
+            </div>
 
             {formattedBudgets.length > 0 ? (
-              formattedBudgets.map((item) => (
-                <div className="budget" key={item.category}>
-                  <div className="budget-top">
-                    <div>
-                      <span className="budget-category">{item.category}</span>
-                      <p className="budget-meta">
-                        {formatCurrency(item.spent)} spent of {formatCurrency(item.total)}
-                      </p>
+              <div className="dashboard-budget-list">
+                {formattedBudgets.map((item) => (
+                  <div className="dashboard-budget-item" key={item.category}>
+                    <div className="dashboard-budget-top">
+                      <div>
+                        <p className="dashboard-budget-category">{item.category}</p>
+                        <p className="dashboard-budget-meta">
+                          {formatCurrency(item.spent)} spent of {formatCurrency(item.total)}
+                        </p>
+                      </div>
+                      <span className={`dashboard-budget-status ${item.statusClass}`}>{item.statusLabel}</span>
                     </div>
-                    <span className={`budget-status ${item.statusClass}`}>{item.statusLabel}</span>
-                  </div>
 
-                  <div className="bar">
-                    <div className={item.barClass} style={{ width: `${item.progress}%` }} />
-                  </div>
+                    <div className="dashboard-budget-bar">
+                      <div className={`dashboard-budget-fill ${item.barClass}`} style={{ width: `${item.progress}%` }} />
+                    </div>
 
-                  <div className="budget-foot">
-                    <span>{item.usage}% used</span>
-                    <span className={item.remaining < 0 ? "budget-over" : "budget-left"}>
-                      {item.remaining < 0
-                        ? `${formatCurrency(Math.abs(item.remaining))} over`
-                        : `${formatCurrency(item.remaining)} left`}
-                    </span>
+                    <div className="dashboard-budget-foot">
+                      <span>{item.usage}% used</span>
+                      <span className={item.remaining < 0 ? "dashboard-budget-over" : "dashboard-budget-left"}>
+                        {item.remaining < 0
+                          ? `${formatCurrency(Math.abs(item.remaining))} over`
+                          : `${formatCurrency(item.remaining)} left`}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
             ) : (
-              <p className="empty">No budgets created yet</p>
+              <p className="dashboard-empty">No budgets created yet</p>
             )}
-          </div>
-        </div>
+          </article>
+        </section>
 
-        <div className="quick">
-          <button onClick={() => navigate("/transactions/add")} type="button">
-            <TrendingUp /> Add Transaction
+        <section className="dashboard-actions">
+          <button className="dashboard-action-btn" onClick={() => navigate("/transactions/add")} type="button">
+            <TrendingUp size={18} /> Add Transaction
           </button>
 
-          <button onClick={() => navigate("/budgets/create")} type="button">
-            <CreditCard /> Create Budget
+          <button className="dashboard-action-btn" onClick={() => navigate("/budgets/create")} type="button">
+            <CreditCard size={18} /> Create Budget
           </button>
 
-          <button onClick={() => navigate("/report")} type="button">
-            <Calendar /> View Reports
+          <button className="dashboard-action-btn" onClick={() => navigate("/report")} type="button">
+            <Calendar size={18} /> View Reports
           </button>
-        </div>
+        </section>
       </div>
     </div>
   );

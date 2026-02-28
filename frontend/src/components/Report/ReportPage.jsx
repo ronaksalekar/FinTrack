@@ -15,10 +15,7 @@ import {
 } from "recharts";
 import { useEncryptedData } from "../../hooks/useEncryptedData";
 import { formatCurrency } from "../../utils/currency";
-import {
-  PERIOD_FILTERS,
-  PERIOD_LABELS,
-} from "../../utils/analytics";
+import { PERIOD_FILTERS, PERIOD_LABELS } from "../../utils/analytics";
 import { useAnalyticsWorker } from "../../hooks/useAnalyticsWorker";
 import "./ReportPage.css";
 
@@ -51,22 +48,14 @@ const renderPiePercentLabel = ({ cx, cy, midAngle, outerRadius, percent, payload
 };
 
 export default function ReportsPage() {
-  const {
-    data: transactions,
-    loading,
-    initialized,
-    hasMore,
-    loadMore,
-  } = useEncryptedData("transaction", { pageSize: 60 });
+  const { data: transactions, loading, initialized, hasMore, loadMore } = useEncryptedData("transaction", {
+    pageSize: 60,
+  });
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const {
-    filteredTransactions,
-    trendData,
-    categoryBreakdown,
-    analyticsLoading,
-  } = useAnalyticsWorker(transactions, selectedPeriod);
+  const { filteredTransactions, trendData, categoryBreakdown, analyticsLoading } =
+    useAnalyticsWorker(transactions, selectedPeriod);
 
   const isInitialLoading = !initialized && loading;
 
@@ -80,9 +69,10 @@ export default function ReportsPage() {
       .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
     const net = income - expenses;
-    const avgExpense = expenses > 0
-      ? expenses / Math.max(filteredTransactions.filter((item) => item.type === "expense").length, 1)
-      : 0;
+    const avgExpense =
+      expenses > 0
+        ? expenses / Math.max(filteredTransactions.filter((item) => item.type === "expense").length, 1)
+        : 0;
 
     return { income, expenses, net, avgExpense };
   }, [filteredTransactions]);
@@ -94,7 +84,7 @@ export default function ReportsPage() {
       filteredTransactions
         .filter((item) => item.type === "expense")
         .sort((a, b) => new Date(b.date || b._timestamp) - new Date(a.date || a._timestamp))
-        .slice(0, 6),
+        .slice(0, 8),
     [filteredTransactions]
   );
 
@@ -104,19 +94,31 @@ export default function ReportsPage() {
     setLoadingMore(false);
   };
 
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(filteredTransactions, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `report-${selectedPeriod}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (isInitialLoading) {
     return (
-      <div className="reports">
-        <div className="reports-container">
-          <div className="skeleton-row">
-            <div className="skeleton-block title" />
-            <div className="skeleton-block subtitle" />
+      <div className="report-page">
+        <div className="report-shell">
+          <div className="report-skeleton-row">
+            <div className="report-skeleton-block title" />
+            <div className="report-skeleton-block subtitle" />
           </div>
-          <div className="skeleton-grid">
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
-            <div className="skeleton-card" />
+          <div className="report-skeleton-grid">
+            <div className="report-skeleton-card" />
+            <div className="report-skeleton-card" />
+            <div className="report-skeleton-card" />
+            <div className="report-skeleton-card" />
           </div>
         </div>
       </div>
@@ -124,198 +126,207 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="reports">
-      <div className="reports-header">
-        <div>
-          <h1>Reports</h1>
-          <p>{PERIOD_LABELS[selectedPeriod]} analytics snapshot</p>
-          {analyticsLoading && <span className="updating-tag">Updating analytics...</span>}
-        </div>
-
-        <button
-          className="export-btn"
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(filteredTransactions, null, 2)], {
-              type: "application/json",
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `report-${selectedPeriod}.json`;
-            link.click();
-          }}
-          type="button"
-        >
-          <Download size={18} /> Export Report
-        </button>
-      </div>
-
-      <div className="reports-container">
-        <div className="filters">
+    <div className="report-page">
+      <div className="report-shell">
+        <header className="report-head">
           <div>
-            <label>
-              <Calendar size={14} /> Time Period
-            </label>
+            <p className="report-kicker">Analytics</p>
+            <h1>Reports</h1>
+            <p className="report-subtitle">{PERIOD_LABELS[selectedPeriod]} analytics snapshot</p>
+            {analyticsLoading && <span className="report-updating">Updating analytics...</span>}
+          </div>
 
-            <div className="period-buttons">
-              {PERIOD_FILTERS.map((period) => (
-                <button
-                  key={period.value}
-                  className={selectedPeriod === period.value ? "active" : ""}
-                  onClick={() => setSelectedPeriod(period.value)}
-                  type="button"
-                >
-                  {period.label}
-                </button>
-              ))}
+          <button className="report-export-btn" onClick={handleExport} type="button">
+            <Download size={18} /> Export Report
+          </button>
+        </header>
+
+        <section className="report-filters">
+          <label>
+            <Calendar size={14} /> Time period
+          </label>
+          <div className="report-period-buttons">
+            {PERIOD_FILTERS.map((period) => (
+              <button
+                key={period.value}
+                className={selectedPeriod === period.value ? "report-period-btn active" : "report-period-btn"}
+                onClick={() => setSelectedPeriod(period.value)}
+                type="button"
+              >
+                {period.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="report-summary">
+          <article className="report-stat is-income">
+            <div className="report-stat-icon">
+              <TrendingUp size={18} />
             </div>
-          </div>
-        </div>
+            <p className="report-stat-label">Total Income</p>
+            <p className="report-stat-value">{formatCurrency(metrics.income)}</p>
+          </article>
 
-        <div className="summary">
-          <div className="stat gradient">
-            <TrendingUp />
-            <h3>{formatCurrency(metrics.income)}</h3>
-            <span>Total Income</span>
-          </div>
-
-          <div className="stat expense">
-            <TrendingDown />
-            <h3>{formatCurrency(metrics.expenses)}</h3>
-            <span>Total Expenses</span>
-          </div>
-
-          <div className="stat income">
-            <IndianRupee />
-            <h3>{formatCurrency(metrics.net)}</h3>
-            <span>Net Savings</span>
-          </div>
-
-          <div className="stat daily">
-            <BarChart3 />
-            <h3>{formatCurrency(metrics.avgExpense)}</h3>
-            <span>Average Expense</span>
-          </div>
-        </div>
-
-        <div className="card wide">
-          <h3>Income vs Expenses</h3>
-          <p className="chart-tag">{PERIOD_LABELS[selectedPeriod]} trend</p>
-          {hasTrendData ? (
-            <div className="bar-chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-                  <XAxis dataKey="label" tick={{ fill: "var(--text-secondary)", fontSize: 12 }} />
-                  <YAxis
-                    tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
-                    tickFormatter={(value) => `${Math.round(value / 1000)}k`}
-                  />
-                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
-                  <Legend />
-                  <Bar
-                    dataKey="income"
-                    name="Income"
-                    fill="#16a34a"
-                    radius={[4, 4, 0, 0]}
-                    isAnimationActive={false}
-                  />
-                  <Bar
-                    dataKey="expense"
-                    name="Expense"
-                    fill="#ef4444"
-                    radius={[4, 4, 0, 0]}
-                    isAnimationActive={false}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+          <article className="report-stat is-expense">
+            <div className="report-stat-icon">
+              <TrendingDown size={18} />
             </div>
-          ) : (
-            <p className="empty">No chart data in this period</p>
-          )}
-        </div>
+            <p className="report-stat-label">Total Expenses</p>
+            <p className="report-stat-value">{formatCurrency(metrics.expenses)}</p>
+          </article>
 
-        <div className="card">
-          <h3>Category Breakdown</h3>
-          <p className="chart-tag">Expense categories</p>
-          {categoryBreakdown.length > 0 ? (
-            <div className="pie-chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryBreakdown}
-                    dataKey="amount"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={52}
-                    outerRadius={84}
-                    isAnimationActive={false}
-                    label={renderPiePercentLabel}
-                    labelLine={{ stroke: "var(--border-color)", strokeWidth: 1.2 }}
-                  >
-                    {categoryBreakdown.map((item) => (
-                      <Cell key={item.name} fill={item.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+          <article className="report-stat is-net">
+            <div className="report-stat-icon">
+              <IndianRupee size={18} />
             </div>
-          ) : (
-            <p className="empty">No expenses in this period</p>
-          )}
-        </div>
+            <p className="report-stat-label">Net Savings</p>
+            <p className="report-stat-value">{formatCurrency(metrics.net)}</p>
+          </article>
 
-        <div className="card">
-          <h3>Recent Expenses</h3>
-          <p className="chart-tag">Showing loaded history only</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Date</th>
-                <th className="right">Amount</th>
-              </tr>
-            </thead>
+          <article className="report-stat is-average">
+            <div className="report-stat-icon">
+              <BarChart3 size={18} />
+            </div>
+            <p className="report-stat-label">Average Expense</p>
+            <p className="report-stat-value">{formatCurrency(metrics.avgExpense)}</p>
+          </article>
+        </section>
 
-            <tbody>
-              {recentExpenses.length > 0 ? (
-                recentExpenses.map((item) => (
-                  <tr key={item._id}>
-                    <td>{item.description || "-"}</td>
-                    <td>{item.category || "Other"}</td>
-                    <td>{new Date(item.date || item._timestamp).toLocaleDateString()}</td>
-                    <td className="right red">{formatCurrency(Number(item.amount || 0))}</td>
+        <section className="report-grid">
+          <article className="report-panel report-panel-wide">
+            <div className="report-panel-head">
+              <h2>Income vs Expenses</h2>
+              <p>{PERIOD_LABELS[selectedPeriod]} trend</p>
+            </div>
+
+            {hasTrendData ? (
+              <div className="report-bar-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+                    <XAxis dataKey="label" tick={{ fill: "var(--text-secondary)", fontSize: 12 }} />
+                    <YAxis
+                      tick={{ fill: "var(--text-secondary)", fontSize: 12 }}
+                      tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                    />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                    <Legend />
+                    <Bar
+                      dataKey="income"
+                      name="Income"
+                      fill="#16a34a"
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      name="Expense"
+                      fill="#ef4444"
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="report-empty">No chart data in this period</p>
+            )}
+          </article>
+
+          <article className="report-panel">
+            <div className="report-panel-head">
+              <h2>Category Breakdown</h2>
+              <p>Expense categories</p>
+            </div>
+
+            {categoryBreakdown.length > 0 ? (
+              <div className="report-pie-chart">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryBreakdown}
+                      dataKey="amount"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={52}
+                      outerRadius={84}
+                      isAnimationActive={false}
+                      label={renderPiePercentLabel}
+                      labelLine={{ stroke: "var(--border-color)", strokeWidth: 1.2 }}
+                    >
+                      {categoryBreakdown.map((item) => (
+                        <Cell key={item.name} fill={item.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCurrency(Number(value || 0))} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="report-empty">No expenses in this period</p>
+            )}
+          </article>
+
+          <article className="report-panel">
+            <div className="report-panel-head">
+              <h2>Recent Expenses</h2>
+              <p>Showing loaded history only</p>
+            </div>
+
+            <div className="report-table-wrap">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Date</th>
+                    <th className="right">Amount</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="4" className="empty">No expense transactions found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-          {hasMore && (
-            <button className="secondary-btn load-more-btn" type="button" onClick={handleLoadMore}>
-              {loadingMore ? "Loading more..." : "Load More Transactions"}
-            </button>
-          )}
-        </div>
+                </thead>
 
-        <div className="insights">
-          <div className="info blue">
-            <h4>Filter-aware Analytics</h4>
+                <tbody>
+                  {recentExpenses.length > 0 ? (
+                    recentExpenses.map((item) => (
+                      <tr key={item._id}>
+                        <td>{item.description || "-"}</td>
+                        <td>{item.category || "Other"}</td>
+                        <td>{new Date(item.date || item._timestamp).toLocaleDateString()}</td>
+                        <td className="right red">{formatCurrency(Number(item.amount || 0))}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="report-empty-cell">
+                        No expense transactions found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {hasMore && (
+              <button className="report-load-more" type="button" onClick={handleLoadMore}>
+                {loadingMore ? "Loading more..." : "Load More Transactions"}
+              </button>
+            )}
+          </article>
+        </section>
+
+        <section className="report-insights">
+          <article className="report-info is-blue">
+            <h3>Filter-aware Analytics</h3>
             <p>All totals and charts update instantly when you switch period tags.</p>
-          </div>
+          </article>
 
-          <div className="info green">
-            <h4>Security</h4>
+          <article className="report-info is-green">
+            <h3>Security</h3>
             <p>Your server stores encrypted data blobs only.</p>
-          </div>
-        </div>
+          </article>
+        </section>
       </div>
     </div>
   );

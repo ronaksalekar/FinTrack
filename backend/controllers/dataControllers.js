@@ -208,10 +208,39 @@ const bulkCreateData = async (req, res) => {
   }
 };
 
+/* ================= BULK SOFT DELETE ================= */
+const deleteAllUserData = async (req, res) => {
+  try {
+    const { dataType } = req.query;
+    const query = {
+      userId: req.user._id,
+      isDeleted: false,
+    };
+
+    if (dataType) {
+      if (!VALID_DATA_TYPES.has(dataType)) {
+        return sendError(res, 400, "Invalid data type filter");
+      }
+      query.dataType = dataType;
+    }
+
+    const result = await EncryptedData.updateMany(query, { $set: { isDeleted: true } });
+
+    return sendSuccess(res, {
+      success: true,
+      message: "Data deleted",
+      deletedCount: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    return sendError(res, 500, "Server error deleting data");
+  }
+};
+
 module.exports = {
   getUserData,
   createData,
   updateData,
   deleteData,
   bulkCreateData,
+  deleteAllUserData,
 };

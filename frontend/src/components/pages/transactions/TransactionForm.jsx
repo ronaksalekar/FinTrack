@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { IndianRupee, Calendar, Tag, FileText } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  IndianRupee,
+  Calendar,
+  Tag,
+  FileText,
+  WalletCards,
+  ArrowDownCircle,
+  ArrowUpCircle,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEncryptedData } from "../../../hooks/useEncryptedData";
 import toast from "react-hot-toast";
@@ -21,12 +29,37 @@ const CATEGORIES = {
   ],
 };
 
+const PAYMENT_METHODS = ["cash", "card", "upi", "bank transfer", "other"];
+
+const formatDate = (value) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value || "No date";
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const toTitleCase = (value = "") =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+
 export default function TransactionForm() {
   const navigate = useNavigate();
-  const { addData } = useEncryptedData("transaction");
+  const {
+    addData,
+    data: existingTransactions,
+    hasMore,
+    loadMore,
+    loading: dataLoading,
+  } = useEncryptedData("transaction", { pageSize: 25 });
 
   const [loading, setLoading] = useState(false);
-
   const [formData, setFormData] = useState({
     type: "expense",
     amount: "",
@@ -36,7 +69,32 @@ export default function TransactionForm() {
     paymentMethod: "cash",
   });
 
-  // Handle input change
+  const incomeTotal = useMemo(
+    () =>
+      existingTransactions
+        .filter((item) => item.type === "income")
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [existingTransactions]
+  );
+
+  const expenseTotal = useMemo(
+    () =>
+      existingTransactions
+        .filter((item) => item.type === "expense")
+        .reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [existingTransactions]
+  );
+
+  const sortedTransactions = useMemo(
+    () =>
+      [...existingTransactions].sort(
+        (a, b) =>
+          new Date(b.date || b._timestamp || 0).getTime() -
+          new Date(a.date || a._timestamp || 0).getTime()
+      ),
+    [existingTransactions]
+  );
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -47,7 +105,6 @@ export default function TransactionForm() {
     }));
   };
 
-  // Submit form (Encrypted Save)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -80,132 +137,204 @@ export default function TransactionForm() {
   };
 
   return (
-    <div className="page">
-      <div className="container">
-        {/* Header */}
-        <div className="header">
+    <div className="txn-page">
+      <div className="txn-shell">
+        <header className="txn-header">
           <h1>Transactions</h1>
-        </div>
+          <p className="txn-subtitle">Capture income and expenses with encrypted storage.</p>
+        </header>
 
-        {/* FORM CARD */}
-        <form className="card" onSubmit={handleSubmit}>
-          <h2>Add Transaction</h2>
+        <div className="txn-grid">
+          <section className="txn-panel">
+            <header className="txn-panel-head">
+              <h2>Add transaction</h2>
+            </header>
 
-          {/* TYPE */}
-          <div className="form-group">
-            <label><h4>Type</h4></label>
+            <form className="txn-form" onSubmit={handleSubmit}>
+              <div className="txn-field">
+                <label>Type</label>
+                <div className="txn-type-toggle">
+                  {["expense", "income"].map((type) => (
+                    <label
+                      key={type}
+                      className={formData.type === type ? "txn-type-chip active" : "txn-type-chip"}
+                    >
+                      <input
+                        type="radio"
+                        name="type"
+                        value={type}
+                        checked={formData.type === type}
+                        onChange={handleChange}
+                      />
+                      {toTitleCase(type)}
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-            <div className="radio-group">
-              <label>
+              <div className="txn-field">
+                <label htmlFor="txnAmount">
+                  <IndianRupee size={14} /> Amount
+                </label>
                 <input
-                  type="radio"
-                  name="type"
-                  value="expense"
-                  checked={formData.type === "expense"}
+                  id="txnAmount"
+                  className="txn-input"
+                  type="number"
+                  name="amount"
+                  value={formData.amount}
                   onChange={handleChange}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
                 />
-                Expense
-              </label>
+              </div>
 
-              <label>
+              <div className="txn-field">
+                <label htmlFor="txnDate">
+                  <Calendar size={14} /> Date
+                </label>
                 <input
-                  type="radio"
-                  name="type"
-                  value="income"
-                  checked={formData.type === "income"}
+                  id="txnDate"
+                  className="txn-input"
+                  type="date"
+                  name="date"
+                  value={formData.date}
                   onChange={handleChange}
+                  max={new Date().toISOString().split("T")[0]}
                 />
-                Income
-              </label>
+              </div>
+
+              <div className="txn-field">
+                <label htmlFor="txnCategory">
+                  <Tag size={14} /> Category
+                </label>
+                <select
+                  id="txnCategory"
+                  className="txn-input"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                >
+                  <option value="">Select category</option>
+                  {CATEGORIES[formData.type].map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="txn-field">
+                <label htmlFor="txnPaymentMethod">
+                  <WalletCards size={14} /> Payment method
+                </label>
+                <select
+                  id="txnPaymentMethod"
+                  className="txn-input"
+                  name="paymentMethod"
+                  value={formData.paymentMethod}
+                  onChange={handleChange}
+                >
+                  {PAYMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {toTitleCase(method)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="txn-field">
+                <label htmlFor="txnDescription">
+                  <FileText size={14} /> Description
+                </label>
+                <textarea
+                  id="txnDescription"
+                  className="txn-input txn-textarea"
+                  rows={3}
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Optional note about this transaction"
+                />
+              </div>
+
+              <div className="txn-actions">
+                <button type="submit" className="txn-btn-primary" disabled={loading}>
+                  {loading ? "Encrypting and saving..." : "Add transaction"}
+                </button>
+
+                <button
+                  type="button"
+                  className="txn-btn-secondary"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </section>
+
+          <section className="txn-panel">
+            <header className="txn-panel-head">
+              <h2>Recent activity</h2>
+              <p>Quick view of your latest encrypted records.</p>
+            </header>
+
+            <div className="txn-stats">
+              <article className="txn-stat-card income">
+                <p className="txn-stat-label">Income</p>
+                <p className="txn-stat-value">Rs. {incomeTotal.toFixed(2)}</p>
+              </article>
+              <article className="txn-stat-card expense">
+                <p className="txn-stat-label">Expenses</p>
+                <p className="txn-stat-value">Rs. {expenseTotal.toFixed(2)}</p>
+              </article>
             </div>
-          </div>
 
-          {/* AMOUNT */}
-          <div className="form-group">
-            <label>
-              <IndianRupee size={14} /> <strong>Amount</strong>
-            </label>
+            {sortedTransactions.length === 0 && !dataLoading ? (
+              <p className="txn-empty">No transactions yet</p>
+            ) : (
+              <div className="txn-list">
+                {sortedTransactions.map((transaction) => {
+                  const isIncome = transaction.type === "income";
+                  const Icon = isIncome ? ArrowUpCircle : ArrowDownCircle;
 
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-          </div>
+                  return (
+                    <article className="txn-list-item" key={transaction._id}>
+                      <div className="txn-list-head">
+                        <div>
+                          <p className="txn-category">{transaction.category || "Uncategorized"}</p>
+                          <p className="txn-meta">
+                            {formatDate(transaction.date || transaction._timestamp)} -{" "}
+                            {toTitleCase(transaction.paymentMethod || "cash")}
+                          </p>
+                        </div>
+                        <p className={isIncome ? "txn-amount income" : "txn-amount expense"}>
+                          <Icon size={15} />
+                          {isIncome ? "+" : "-"}Rs. {Number(transaction.amount || 0).toFixed(2)}
+                        </p>
+                      </div>
 
-          {/* DATE */}
-          <div className="form-group">
-            <label>
-              <Calendar size={14} /> <strong>Date</strong>
-            </label>
+                      {transaction.description ? (
+                        <p className="txn-description">{transaction.description}</p>
+                      ) : (
+                        <p className="txn-description muted">No description</p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
 
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              max={new Date().toISOString().split("T")[0]}
-            />
-          </div>
-
-          {/* CATEGORY */}
-          <div className="form-group">
-            <label>
-              <Tag size={14} /> <strong>Category</strong>
-            </label>
-
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-            >
-              <option value="">Select category</option>
-
-              {CATEGORIES[formData.type].map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* DESCRIPTION */}
-          <div className="form-group">
-            <label>
-              <FileText size={14} /> <strong>Description</strong>
-            </label>
-
-            <textarea
-              rows={3}
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-            />
-          </div>
-
-          {/* ACTION BUTTONS */}
-          <div className="btn-group">
-            <button
-              type="submit"
-              className="primary-btn"
-              disabled={loading}
-            >
-              {loading ? "Encrypting & Saving..." : "Add Transaction"}
-            </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => navigate("/dashboard")}
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+            {hasMore && (
+              <div className="txn-load-more">
+                <button className="txn-btn-secondary" type="button" onClick={loadMore}>
+                  Load more transactions
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );
